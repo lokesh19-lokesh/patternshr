@@ -9,7 +9,8 @@ import {
   Clock,
   Calendar,
   ClipboardList,
-  DollarSign
+  DollarSign,
+  BarChart
 } from 'lucide-react';
 
 const navigation = [
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Departments', href: '/dashboard/departments', icon: Building2 },
   { name: 'Designations', href: '/dashboard/designations', icon: Briefcase },
   { name: 'Documents', href: '/dashboard/documents', icon: FileText },
+  { name: 'Reports', href: '/dashboard/reports', icon: BarChart },
 ];
 
 export const Sidebar: React.FC = () => {
