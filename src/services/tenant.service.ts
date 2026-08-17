@@ -35,6 +35,7 @@ export const tenantService = {
         companies ( id, name, logo_url ),
         roles ( id, name, is_system_role )
       `)
+      .limit(1)
       .single();
 
     if (memberError || !memberData) {
