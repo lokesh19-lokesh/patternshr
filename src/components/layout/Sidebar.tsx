@@ -6,12 +6,14 @@ import {
   Building2, 
   Briefcase,
   FileText,
-  Clock
+  Clock,
+  Calendar
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Attendance', href: '/dashboard/attendance', icon: Clock },
+  { name: 'Time Off', href: '/dashboard/leave', icon: Calendar },
   { name: 'Employees', href: '/dashboard/employees', icon: Users },
   { name: 'Departments', href: '/dashboard/departments', icon: Building2 },
   { name: 'Designations', href: '/dashboard/designations', icon: Briefcase },

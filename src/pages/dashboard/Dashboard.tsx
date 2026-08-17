@@ -10,6 +10,10 @@ import { DepartmentsPage } from '../../features/departments/DepartmentsPage';
 import { DesignationsPage } from '../../features/designations/DesignationsPage';
 import { DailyRoster } from '../../features/attendance/DailyRoster';
 import { SelfServiceWidget } from '../../features/attendance/SelfServiceWidget';
+import { LeaveTypesPage } from '../../features/leave/LeaveTypesPage';
+import { LeavePoliciesPage } from '../../features/leave/LeavePoliciesPage';
+import { MyLeavesPage } from '../../features/leave/MyLeavesPage';
+import { LeaveApprovalsPage } from '../../features/leave/LeaveApprovalsPage';
 
 const Overview = () => (
   <div className="space-y-6">
@@ -63,6 +67,10 @@ export const Dashboard: React.FC = () => {
               <Route path="/employees/new" element={<EmployeeForm />} />
               <Route path="/departments" element={<DepartmentsPage />} />
               <Route path="/designations" element={<DesignationsPage />} />
+              <Route path="/leave" element={<MyLeavesPage />} />
+              <Route path="/leave/types" element={<LeaveTypesPage />} />
+              <Route path="/leave/policies" element={<LeavePoliciesPage />} />
+              <Route path="/leave/approvals" element={<LeaveApprovalsPage />} />
               <Route path="/documents/*" element={<div>Documents Module (Coming Soon)</div>} />
             </Routes>
           </div>
