@@ -109,5 +109,17 @@ export const employeeService = {
     
     if (error) throw error;
     return result;
+  },
+
+  async getCurrentEmployee(companyId: string, userId: string): Promise<Employee | null> {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('profile_id', userId)
+      .maybeSingle();
+    
+    if (error) throw error;
+    return data as Employee | null;
   }
 };

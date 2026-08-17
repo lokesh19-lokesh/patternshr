@@ -8,11 +8,16 @@ import { EmployeeList } from '../../features/employees/EmployeeList';
 import { EmployeeForm } from '../../features/employees/EmployeeForm';
 import { DepartmentsPage } from '../../features/departments/DepartmentsPage';
 import { DesignationsPage } from '../../features/designations/DesignationsPage';
+import { DailyRoster } from '../../features/attendance/DailyRoster';
+import { SelfServiceWidget } from '../../features/attendance/SelfServiceWidget';
 
 const Overview = () => (
-  <div className="bg-white rounded-lg shadow p-6">
-    <h2 className="text-xl font-semibold mb-4">Dashboard Overview</h2>
-    <p className="text-gray-600">Select an item from the sidebar to manage your company data.</p>
+  <div className="space-y-6">
+    <SelfServiceWidget />
+    <div className="bg-white rounded-lg shadow p-6">
+      <h2 className="text-xl font-semibold mb-4">Dashboard Overview</h2>
+      <p className="text-gray-600">Select an item from the sidebar to manage your company data.</p>
+    </div>
   </div>
 );
 
@@ -53,6 +58,7 @@ export const Dashboard: React.FC = () => {
           <div className="py-6 px-4 sm:px-6 lg:px-8">
             <Routes>
               <Route path="/" element={<Overview />} />
+              <Route path="/attendance" element={<DailyRoster />} />
               <Route path="/employees" element={<EmployeeList />} />
               <Route path="/employees/new" element={<EmployeeForm />} />
               <Route path="/departments" element={<DepartmentsPage />} />
