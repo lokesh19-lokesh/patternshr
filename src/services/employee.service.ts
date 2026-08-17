@@ -26,8 +26,14 @@ export interface Employee {
   phone: string | null;
   department_id: string | null;
   designation_id: string | null;
+  manager_id: string | null;
   joining_date: string;
+  date_of_birth: string | null;
+  gender: string | null;
+  employment_type: string | null;
   status: string;
+  address: any | null;
+  emergency_contact: any | null;
   department?: Department;
   designation?: Designation;
 }
@@ -89,7 +95,7 @@ export const employeeService = {
     const { data, error } = await supabase
       .from('employees')
       .select(`
-        id, employee_id, first_name, last_name, email, phone, status, joining_date, department_id, designation_id,
+        id, employee_id, first_name, last_name, email, phone, status, joining_date, department_id, designation_id, manager_id, date_of_birth, gender, employment_type, address, emergency_contact,
         department:departments!employees_department_id_fkey(id, name),
         designation:designations(id, name)
       `)
@@ -98,6 +104,22 @@ export const employeeService = {
     
     if (error) throw error;
     return (data as unknown) as Employee[];
+  },
+
+  async getEmployeeById(companyId: string, id: string): Promise<Employee | null> {
+    const { data, error } = await supabase
+      .from('employees')
+      .select(`
+        id, employee_id, first_name, last_name, email, phone, status, joining_date, department_id, designation_id, manager_id, date_of_birth, gender, employment_type, address, emergency_contact,
+        department:departments!employees_department_id_fkey(id, name),
+        designation:designations(id, name)
+      `)
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return (data as unknown) as Employee;
   },
 
   async createEmployee(companyId: string, data: Partial<Employee>): Promise<Employee> {
@@ -123,6 +145,19 @@ export const employeeService = {
       .select()
       .single();
     
+    if (error) throw error;
+    return result;
+  },
+
+  async updateEmployee(companyId: string, id: string, data: Partial<Employee>): Promise<Employee> {
+    const { data: result, error } = await supabase
+      .from('employees')
+      .update(data)
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .select()
+      .single();
+      
     if (error) throw error;
     return result;
   },

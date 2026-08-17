@@ -85,6 +85,9 @@ export const Dashboard: React.FC = () => {
                 <Route path="/employees/new" element={
                   <ProtectedRoute allowedRoles={['admin', 'hr']}><EmployeeForm /></ProtectedRoute>
                 } />
+                <Route path="/employees/:id/edit" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr']}><EmployeeForm /></ProtectedRoute>
+                } />
                 <Route path="/departments" element={
                   <ProtectedRoute allowedRoles={['admin', 'hr']}><DepartmentsPage /></ProtectedRoute>
                 } />
