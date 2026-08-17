@@ -63,6 +63,29 @@ export const employeeService = {
     return result;
   },
 
+  async updateDepartment(companyId: string, id: string, data: Partial<Department>): Promise<Department> {
+    const { data: result, error } = await supabase
+      .from('departments')
+      .update(data)
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return result;
+  },
+
+  async deleteDepartment(companyId: string, id: string): Promise<void> {
+    const { error } = await supabase
+      .from('departments')
+      .update({ status: 'inactive' })
+      .eq('company_id', companyId)
+      .eq('id', id);
+    
+    if (error) throw error;
+  },
+
   // Designations
   async getDesignations(companyId: string): Promise<Designation[]> {
     const { data, error } = await supabase
@@ -88,6 +111,29 @@ export const employeeService = {
     
     if (error) throw error;
     return result;
+  },
+
+  async updateDesignation(companyId: string, id: string, data: Partial<Designation>): Promise<Designation> {
+    const { data: result, error } = await supabase
+      .from('designations')
+      .update(data)
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return result;
+  },
+
+  async deleteDesignation(companyId: string, id: string): Promise<void> {
+    const { error } = await supabase
+      .from('designations')
+      .update({ status: 'inactive' })
+      .eq('company_id', companyId)
+      .eq('id', id);
+    
+    if (error) throw error;
   },
 
   // Employees

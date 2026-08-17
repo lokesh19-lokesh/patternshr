@@ -18,6 +18,7 @@ export const DepartmentsPage: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<DepartmentForm>({
     resolver: zodResolver(departmentSchema)
@@ -42,13 +43,42 @@ export const DepartmentsPage: React.FC = () => {
   const onSubmit = async (data: DepartmentForm) => {
     if (!company) return;
     try {
-      await employeeService.createDepartment(company.id, data);
-      reset();
-      setShowForm(false);
+      if (editingId) {
+        await employeeService.updateDepartment(company.id, editingId, data);
+      } else {
+        await employeeService.createDepartment(company.id, data);
+      }
+      handleCancel();
       loadDepartments();
     } catch (err) {
-      console.error('Failed to create department', err);
+      console.error('Failed to save department', err);
     }
+  };
+
+  const handleEdit = (dept: Department) => {
+    setEditingId(dept.id);
+    reset({
+      name: dept.name,
+      description: dept.description || ''
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!company) return;
+    if (!window.confirm('Are you sure you want to delete this department?')) return;
+    try {
+      await employeeService.deleteDepartment(company.id, id);
+      loadDepartments();
+    } catch (err) {
+      console.error('Failed to delete department', err);
+    }
+  };
+
+  const handleCancel = () => {
+    reset({ name: '', description: '' });
+    setEditingId(null);
+    setShowForm(false);
   };
 
   return (
@@ -56,7 +86,7 @@ export const DepartmentsPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Departments</h2>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={showForm ? handleCancel : () => setShowForm(true)}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           {showForm ? 'Cancel' : 'Add Department'}
@@ -65,7 +95,7 @@ export const DepartmentsPage: React.FC = () => {
 
       {showForm && (
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium mb-4">Create New Department</h3>
+          <h3 className="text-lg font-medium mb-4">{editingId ? 'Edit Department' : 'Create New Department'}</h3>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-lg">
             <div>
               <label className="block text-sm font-medium text-gray-700">Name</label>
@@ -105,12 +135,13 @@ export const DepartmentsPage: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {departments.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-6 py-4 text-center text-gray-500">No departments found</td>
+                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">No departments found</td>
                 </tr>
               ) : (
                 departments.map(dept => (
@@ -121,6 +152,20 @@ export const DepartmentsPage: React.FC = () => {
                       <span className="inline-flex rounded-full bg-green-100 px-2 text-xs font-semibold leading-5 text-green-800">
                         {dept.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleEdit(dept)}
+                        className="text-blue-600 hover:text-blue-900 mr-4"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(dept.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))

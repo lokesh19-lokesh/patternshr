@@ -21,6 +21,7 @@ export const DesignationsPage: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<DesignationForm>({
     resolver: zodResolver(designationSchema) as any,
@@ -50,13 +51,44 @@ export const DesignationsPage: React.FC = () => {
   const onSubmit = async (data: DesignationForm) => {
     if (!company) return;
     try {
-      await employeeService.createDesignation(company.id, data);
-      reset();
-      setShowForm(false);
+      if (editingId) {
+        await employeeService.updateDesignation(company.id, editingId, data);
+      } else {
+        await employeeService.createDesignation(company.id, data);
+      }
+      handleCancel();
       loadData();
     } catch (err) {
-      console.error('Failed to create designation', err);
+      console.error('Failed to save designation', err);
     }
+  };
+
+  const handleEdit = (desig: Designation) => {
+    setEditingId(desig.id);
+    reset({
+      name: desig.name,
+      description: desig.description || '',
+      department_id: desig.department_id,
+      level: desig.level
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!company) return;
+    if (!window.confirm('Are you sure you want to delete this designation?')) return;
+    try {
+      await employeeService.deleteDesignation(company.id, id);
+      loadData();
+    } catch (err) {
+      console.error('Failed to delete designation', err);
+    }
+  };
+
+  const handleCancel = () => {
+    reset({ name: '', description: '', department_id: '', level: 1 });
+    setEditingId(null);
+    setShowForm(false);
   };
 
   return (
@@ -64,7 +96,7 @@ export const DesignationsPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Designations</h2>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={showForm ? handleCancel : () => setShowForm(true)}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           {showForm ? 'Cancel' : 'Add Designation'}
@@ -73,7 +105,7 @@ export const DesignationsPage: React.FC = () => {
 
       {showForm && (
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium mb-4">Create New Designation</h3>
+          <h3 className="text-lg font-medium mb-4">{editingId ? 'Edit Designation' : 'Create New Designation'}</h3>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-lg">
             <div>
               <label className="block text-sm font-medium text-gray-700">Department</label>
@@ -132,12 +164,13 @@ export const DesignationsPage: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {designations.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">No designations found</td>
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">No designations found</td>
                 </tr>
               ) : (
                 designations.map(desig => (
@@ -149,6 +182,20 @@ export const DesignationsPage: React.FC = () => {
                       <span className="inline-flex rounded-full bg-green-100 px-2 text-xs font-semibold leading-5 text-green-800">
                         {desig.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleEdit(desig)}
+                        className="text-blue-600 hover:text-blue-900 mr-4"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(desig.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))
