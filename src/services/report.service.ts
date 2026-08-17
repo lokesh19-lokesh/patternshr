@@ -95,7 +95,10 @@ export const reportService = {
         date,
         hours_worked,
         status,
-        employee:employees(first_name, last_name, employee_id),
+        employee:employees(
+          first_name, last_name, employee_id,
+          department:departments!employees_department_id_fkey(name)
+        ),
         project:projects(name)
       `)
       .eq('company_id', companyId)

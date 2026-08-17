@@ -18,7 +18,7 @@ export const attendanceService = {
       .from('attendance')
       .select(`
         *,
-        employee:employees(id, first_name, last_name, employee_id, department:departments(name))
+        employee:employees(id, first_name, last_name, employee_id, department:departments!employees_department_id_fkey(name))
       `)
       .eq('company_id', companyId)
       .eq('date', date);

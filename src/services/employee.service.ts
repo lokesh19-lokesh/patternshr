@@ -90,7 +90,7 @@ export const employeeService = {
       .from('employees')
       .select(`
         id, employee_id, first_name, last_name, email, phone, status, joining_date, department_id, designation_id,
-        department:departments(id, name),
+        department:departments!employees_department_id_fkey(id, name),
         designation:designations(id, name)
       `)
       .eq('company_id', companyId)
