@@ -21,6 +21,7 @@ import { SalaryComponentsPage } from '../../features/payroll/SalaryComponentsPag
 import { SalaryStructuresPage } from '../../features/payroll/SalaryStructuresPage';
 import { PayrollProcessingPage } from '../../features/payroll/PayrollProcessingPage';
 import { MyPayslipsPage } from '../../features/payroll/MyPayslipsPage';
+import { NotificationBell } from '../../features/notifications/NotificationBell';
 
 const Overview = () => (
   <div className="space-y-6">
@@ -53,6 +54,9 @@ export const Dashboard: React.FC = () => {
                 <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
                   {role?.name || 'Loading role...'}
                 </span>
+                
+                <NotificationBell />
+                
                 <span className="text-sm text-gray-500">{user?.email}</span>
                 <button
                   onClick={signOut}

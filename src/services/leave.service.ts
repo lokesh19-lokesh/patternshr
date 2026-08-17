@@ -178,6 +178,30 @@ export const leaveService = {
       .single();
     
     if (error) throw error;
+
+    // Trigger Notification
+    try {
+      const { data: empData } = await supabase
+        .from('employees')
+        .select('profile_id')
+        .eq('id', request.employee_id)
+        .single();
+      
+      if (empData && empData.profile_id) {
+        const { notificationService } = await import('./notification.service');
+        await notificationService.createNotification({
+          company_id: request.company_id,
+          user_id: empData.profile_id,
+          title: `Leave Request ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+          message: `Your leave request starting on ${new Date(request.start_date).toLocaleDateString()} was ${status}.`,
+          type: 'leave_update',
+          reference_id: request.id
+        });
+      }
+    } catch (e) {
+      console.error('Failed to create notification', e);
+    }
+
     return result as LeaveRequest;
   }
 };
