@@ -10,7 +10,8 @@ import {
   Calendar,
   ClipboardList,
   DollarSign,
-  BarChart
+  BarChart,
+  CreditCard
 } from 'lucide-react';
 
 const navigation = [
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Designations', href: '/dashboard/designations', icon: Briefcase },
   { name: 'Documents', href: '/dashboard/documents', icon: FileText },
   { name: 'Reports', href: '/dashboard/reports', icon: BarChart },
+  { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
 ];
 
 export const Sidebar: React.FC = () => {

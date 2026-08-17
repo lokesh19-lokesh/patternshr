@@ -23,6 +23,7 @@ import { PayrollProcessingPage } from '../../features/payroll/PayrollProcessingP
 import { MyPayslipsPage } from '../../features/payroll/MyPayslipsPage';
 import { NotificationBell } from '../../features/notifications/NotificationBell';
 import { ReportsDashboard } from '../../features/reports/ReportsDashboard';
+import { BillingDashboard } from '../../features/billing/BillingDashboard';
 
 const Overview = () => (
   <div className="space-y-6">
@@ -91,6 +92,7 @@ export const Dashboard: React.FC = () => {
               <Route path="/payroll/processing" element={<PayrollProcessingPage />} />
               <Route path="/payroll" element={<MyPayslipsPage />} />
               <Route path="/reports" element={<ReportsDashboard />} />
+              <Route path="/billing" element={<BillingDashboard />} />
               <Route path="/documents/*" element={<div>Documents Module (Coming Soon)</div>} />
             </Routes>
           </div>

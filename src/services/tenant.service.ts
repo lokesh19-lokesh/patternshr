@@ -77,6 +77,14 @@ export const tenantService = {
       throw error;
     }
     
+    // Initialize the 14-day trial
+    try {
+      const { subscriptionService } = await import('./subscription.service');
+      await subscriptionService.initializeTrial(data);
+    } catch (e) {
+      console.error('Failed to initialize trial:', e);
+    }
+    
     return data;
   }
 };

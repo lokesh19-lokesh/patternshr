@@ -101,6 +101,22 @@ export const employeeService = {
   },
 
   async createEmployee(companyId: string, data: Partial<Employee>): Promise<Employee> {
+    // 1. Check current subscription limit
+    const { subscriptionService } = await import('./subscription.service');
+    const subscription = await subscriptionService.getCurrentSubscription(companyId);
+    
+    if (subscription && subscription.plan) {
+      const { count } = await supabase
+        .from('employees')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId);
+        
+      if (count !== null && count >= subscription.plan.employee_limit) {
+        throw new Error(`Employee limit reached. Your current plan allows up to ${subscription.plan.employee_limit} employees. Please upgrade to add more.`);
+      }
+    }
+
+    // 2. Create the employee
     const { data: result, error } = await supabase
       .from('employees')
       .insert({ ...data, company_id: companyId })
