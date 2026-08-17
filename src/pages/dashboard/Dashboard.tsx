@@ -17,6 +17,10 @@ import { LeaveApprovalsPage } from '../../features/leave/LeaveApprovalsPage';
 import { ProjectsPage } from '../../features/work/ProjectsPage';
 import { MyReportsPage } from '../../features/work/MyReportsPage';
 import { ReportReviewPage } from '../../features/work/ReportReviewPage';
+import { SalaryComponentsPage } from '../../features/payroll/SalaryComponentsPage';
+import { SalaryStructuresPage } from '../../features/payroll/SalaryStructuresPage';
+import { PayrollProcessingPage } from '../../features/payroll/PayrollProcessingPage';
+import { MyPayslipsPage } from '../../features/payroll/MyPayslipsPage';
 
 const Overview = () => (
   <div className="space-y-6">
@@ -77,6 +81,10 @@ export const Dashboard: React.FC = () => {
               <Route path="/work/projects" element={<ProjectsPage />} />
               <Route path="/work" element={<MyReportsPage />} />
               <Route path="/work/reviews" element={<ReportReviewPage />} />
+              <Route path="/payroll/components" element={<SalaryComponentsPage />} />
+              <Route path="/payroll/structures" element={<SalaryStructuresPage />} />
+              <Route path="/payroll/processing" element={<PayrollProcessingPage />} />
+              <Route path="/payroll" element={<MyPayslipsPage />} />
               <Route path="/documents/*" element={<div>Documents Module (Coming Soon)</div>} />
             </Routes>
           </div>

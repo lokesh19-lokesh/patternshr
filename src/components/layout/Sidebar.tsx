@@ -8,7 +8,8 @@ import {
   FileText,
   Clock,
   Calendar,
-  ClipboardList
+  ClipboardList,
+  DollarSign
 } from 'lucide-react';
 
 const navigation = [
@@ -16,6 +17,7 @@ const navigation = [
   { name: 'Attendance', href: '/dashboard/attendance', icon: Clock },
   { name: 'Time Off', href: '/dashboard/leave', icon: Calendar },
   { name: 'Work Reports', href: '/dashboard/work', icon: ClipboardList },
+  { name: 'Payroll', href: '/dashboard/payroll', icon: DollarSign },
   { name: 'Employees', href: '/dashboard/employees', icon: Users },
   { name: 'Departments', href: '/dashboard/departments', icon: Building2 },
   { name: 'Designations', href: '/dashboard/designations', icon: Briefcase },
