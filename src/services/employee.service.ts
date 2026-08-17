@@ -184,10 +184,24 @@ export const employeeService = {
       }
     }
 
-    // 2. Create the employee
+    // 2. Check if a profile already exists for this email
+    let profileId = null;
+    if (data.email) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', data.email)
+        .maybeSingle();
+      
+      if (profile) {
+        profileId = profile.id;
+      }
+    }
+
+    // 3. Create the employee
     const { data: result, error } = await supabase
       .from('employees')
-      .insert({ ...data, company_id: companyId })
+      .insert({ ...data, company_id: companyId, profile_id: profileId })
       .select()
       .single();
     
