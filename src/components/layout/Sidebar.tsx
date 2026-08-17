@@ -7,13 +7,15 @@ import {
   Briefcase,
   FileText,
   Clock,
-  Calendar
+  Calendar,
+  ClipboardList
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Attendance', href: '/dashboard/attendance', icon: Clock },
   { name: 'Time Off', href: '/dashboard/leave', icon: Calendar },
+  { name: 'Work Reports', href: '/dashboard/work', icon: ClipboardList },
   { name: 'Employees', href: '/dashboard/employees', icon: Users },
   { name: 'Departments', href: '/dashboard/departments', icon: Building2 },
   { name: 'Designations', href: '/dashboard/designations', icon: Briefcase },

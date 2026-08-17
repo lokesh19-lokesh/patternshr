@@ -14,6 +14,9 @@ import { LeaveTypesPage } from '../../features/leave/LeaveTypesPage';
 import { LeavePoliciesPage } from '../../features/leave/LeavePoliciesPage';
 import { MyLeavesPage } from '../../features/leave/MyLeavesPage';
 import { LeaveApprovalsPage } from '../../features/leave/LeaveApprovalsPage';
+import { ProjectsPage } from '../../features/work/ProjectsPage';
+import { MyReportsPage } from '../../features/work/MyReportsPage';
+import { ReportReviewPage } from '../../features/work/ReportReviewPage';
 
 const Overview = () => (
   <div className="space-y-6">
@@ -71,6 +74,9 @@ export const Dashboard: React.FC = () => {
               <Route path="/leave/types" element={<LeaveTypesPage />} />
               <Route path="/leave/policies" element={<LeavePoliciesPage />} />
               <Route path="/leave/approvals" element={<LeaveApprovalsPage />} />
+              <Route path="/work/projects" element={<ProjectsPage />} />
+              <Route path="/work" element={<MyReportsPage />} />
+              <Route path="/work/reviews" element={<ReportReviewPage />} />
               <Route path="/documents/*" element={<div>Documents Module (Coming Soon)</div>} />
             </Routes>
           </div>
