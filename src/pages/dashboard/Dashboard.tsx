@@ -3,6 +3,8 @@ import { Routes, Route } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { useTenant } from '../../lib/auth/TenantProvider';
 import { Sidebar } from '../../components/layout/Sidebar';
+import { GlobalErrorBoundary } from '../../components/layout/ErrorBoundary';
+import { ProtectedRoute } from '../../components/layout/ProtectedRoute';
 
 import { EmployeeList } from '../../features/employees/EmployeeList';
 import { EmployeeForm } from '../../features/employees/EmployeeForm';
@@ -73,28 +75,66 @@ export const Dashboard: React.FC = () => {
 
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
           <div className="py-6 px-4 sm:px-6 lg:px-8">
-            <Routes>
-              <Route path="/" element={<Overview />} />
-              <Route path="/attendance" element={<DailyRoster />} />
-              <Route path="/employees" element={<EmployeeList />} />
-              <Route path="/employees/new" element={<EmployeeForm />} />
-              <Route path="/departments" element={<DepartmentsPage />} />
-              <Route path="/designations" element={<DesignationsPage />} />
-              <Route path="/leave" element={<MyLeavesPage />} />
-              <Route path="/leave/types" element={<LeaveTypesPage />} />
-              <Route path="/leave/policies" element={<LeavePoliciesPage />} />
-              <Route path="/leave/approvals" element={<LeaveApprovalsPage />} />
-              <Route path="/work/projects" element={<ProjectsPage />} />
-              <Route path="/work" element={<MyReportsPage />} />
-              <Route path="/work/reviews" element={<ReportReviewPage />} />
-              <Route path="/payroll/components" element={<SalaryComponentsPage />} />
-              <Route path="/payroll/structures" element={<SalaryStructuresPage />} />
-              <Route path="/payroll/processing" element={<PayrollProcessingPage />} />
-              <Route path="/payroll" element={<MyPayslipsPage />} />
-              <Route path="/reports" element={<ReportsDashboard />} />
-              <Route path="/billing" element={<BillingDashboard />} />
-              <Route path="/documents/*" element={<div>Documents Module (Coming Soon)</div>} />
-            </Routes>
+            <GlobalErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Overview />} />
+                <Route path="/attendance" element={<DailyRoster />} />
+                
+                {/* Employee Management */}
+                <Route path="/employees" element={<EmployeeList />} />
+                <Route path="/employees/new" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr']}><EmployeeForm /></ProtectedRoute>
+                } />
+                <Route path="/departments" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr']}><DepartmentsPage /></ProtectedRoute>
+                } />
+                <Route path="/designations" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr']}><DesignationsPage /></ProtectedRoute>
+                } />
+                
+                {/* Leave Management */}
+                <Route path="/leave" element={<MyLeavesPage />} />
+                <Route path="/leave/types" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr']}><LeaveTypesPage /></ProtectedRoute>
+                } />
+                <Route path="/leave/policies" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr']}><LeavePoliciesPage /></ProtectedRoute>
+                } />
+                <Route path="/leave/approvals" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}><LeaveApprovalsPage /></ProtectedRoute>
+                } />
+                
+                {/* Work Reports */}
+                <Route path="/work/projects" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}><ProjectsPage /></ProtectedRoute>
+                } />
+                <Route path="/work" element={<MyReportsPage />} />
+                <Route path="/work/reviews" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}><ReportReviewPage /></ProtectedRoute>
+                } />
+                
+                {/* Payroll */}
+                <Route path="/payroll/components" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr']}><SalaryComponentsPage /></ProtectedRoute>
+                } />
+                <Route path="/payroll/structures" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr']}><SalaryStructuresPage /></ProtectedRoute>
+                } />
+                <Route path="/payroll/processing" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr']}><PayrollProcessingPage /></ProtectedRoute>
+                } />
+                <Route path="/payroll" element={<MyPayslipsPage />} />
+                
+                {/* Admin & Reporting */}
+                <Route path="/reports" element={
+                  <ProtectedRoute allowedRoles={['admin', 'hr']}><ReportsDashboard /></ProtectedRoute>
+                } />
+                <Route path="/billing" element={
+                  <ProtectedRoute allowedRoles={['admin', 'owner']}><BillingDashboard /></ProtectedRoute>
+                } />
+                <Route path="/documents/*" element={<div>Documents Module (Coming Soon)</div>} />
+              </Routes>
+            </GlobalErrorBoundary>
           </div>
         </main>
       </div>
