@@ -206,6 +206,19 @@ export const employeeService = {
       .single();
     
     if (error) throw error;
+
+    // 4. Send an invitation email via Edge Function
+    if (data.email && !profileId) {
+      try {
+        await supabase.functions.invoke('invite-employee', {
+          body: { email: data.email }
+        });
+      } catch (invokeError) {
+        console.error('Failed to send invitation email:', invokeError);
+        // We don't throw here because the employee was already created successfully
+      }
+    }
+
     return result;
   },
 
