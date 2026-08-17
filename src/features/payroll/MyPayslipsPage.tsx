@@ -5,6 +5,7 @@ import { employeeService } from '../../services/employee.service';
 import type { Employee } from '../../services/employee.service';
 import { payrollService } from '../../services/payroll.service';
 import { AlertCircle, Download } from 'lucide-react';
+import { generatePayslipPDF } from '../../lib/pdf';
 
 export const MyPayslipsPage: React.FC = () => {
   const { user } = useAuth();
@@ -75,7 +76,11 @@ export const MyPayslipsPage: React.FC = () => {
                   </h3>
                   <p className="text-xs text-gray-500">Issued by {company?.name}</p>
                 </div>
-                <button className="p-2 text-gray-400 hover:text-blue-600 rounded-full hover:bg-blue-50 transition-colors" title="Download PDF">
+                <button 
+                  onClick={() => generatePayslipPDF(ps, company?.name || 'Company')}
+                  className="p-2 text-gray-400 hover:text-blue-600 rounded-full hover:bg-blue-50 transition-colors" 
+                  title="Download PDF"
+                >
                   <Download className="w-5 h-5" />
                 </button>
               </div>
