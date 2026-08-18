@@ -1,39 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '../../lib/supabase/client';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+const resetPasswordSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
-type LoginForm = z.infer<typeof loginSchema>;
+type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 
-export const Login: React.FC = () => {
+export const ResetPassword: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/dashboard';
+  useEffect(() => {
+    // Check if the user is actually in a session / has a recovery token
+    // Supabase automatically logs the user in when they click the recovery link.
+    // If there's no session, they probably shouldn't be here.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        // Maybe redirect to login or show an error
+        setError('No active session found. Please try the reset link again.');
+      }
+    });
+  }, []);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<ResetPasswordForm>({
+    resolver: zodResolver(resetPasswordSchema),
   });
 
-  const onSubmit = async (data: LoginForm) => {
+  const onSubmit = async (data: ResetPasswordForm) => {
     setLoading(true);
     setError(null);
     
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
+    const { error } = await supabase.auth.updateUser({
       password: data.password,
     });
 
@@ -42,7 +53,9 @@ export const Login: React.FC = () => {
     if (error) {
       setError(error.message);
     } else {
-      navigate(from, { replace: true });
+      // Successfully updated password, log them out or redirect to dashboard
+      // Usually good to redirect to dashboard since they are already logged in
+      navigate('/dashboard', { replace: true });
     }
   };
 
@@ -51,13 +64,10 @@ export const Login: React.FC = () => {
       <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
         <div>
           <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            Sign in to your account
+            Set new password
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-              create a new company account
-            </Link>
+            Please enter your new password below.
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
@@ -68,25 +78,7 @@ export const Login: React.FC = () => {
           )}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email address</label>
-              <input
-                type="email"
-                {...register('email')}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
-            </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">Password</label>
-                <div className="text-sm">
-                  <Link to="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
-                    Forgot your password?
-                  </Link>
-                </div>
-              </div>
+              <label className="block text-sm font-medium text-gray-700">New Password</label>
               <input
                 type="password"
                 {...register('password')}
@@ -94,6 +86,17 @@ export const Login: React.FC = () => {
               />
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+              <input
+                type="password"
+                {...register('confirmPassword')}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
+              />
+              {errors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
               )}
             </div>
           </div>
@@ -104,7 +107,7 @@ export const Login: React.FC = () => {
               disabled={loading}
               className="flex w-full justify-center rounded-md bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Updating password...' : 'Update password'}
             </button>
           </div>
         </form>

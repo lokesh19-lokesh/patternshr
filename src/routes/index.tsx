@@ -2,6 +2,8 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Login } from '../pages/auth/Login';
 import { SignUp } from '../pages/auth/SignUp';
+import { ForgotPassword } from '../pages/auth/ForgotPassword';
+import { ResetPassword } from '../pages/auth/ResetPassword';
 import { Onboarding } from '../pages/auth/Onboarding';
 import { Dashboard } from '../pages/dashboard/Dashboard';
 import { ProtectedRoute } from '../components/layout/ProtectedRoute';
@@ -13,6 +15,8 @@ export const AppRoutes: React.FC = () => {
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<SignUp />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       
       {/* Protected routes wrapped in TenantProvider */}
       <Route
