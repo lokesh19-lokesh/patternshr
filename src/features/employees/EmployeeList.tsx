@@ -9,6 +9,24 @@ export const EmployeeList: React.FC = () => {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [invitingId, setInvitingId] = useState<string | null>(null);
+
+  const handleSendInvite = async (employee: Employee) => {
+    if (!employee.email) {
+      alert('Employee has no email address.');
+      return;
+    }
+    try {
+      setInvitingId(employee.id);
+      await employeeService.sendInvite(employee.email);
+      alert(`Invitation link sent to ${employee.email}`);
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to send invitation: ' + err.message);
+    } finally {
+      setInvitingId(null);
+    }
+  };
 
   useEffect(() => {
     const loadEmployees = async () => {
@@ -81,7 +99,16 @@ export const EmployeeList: React.FC = () => {
                         {emp.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
+                      {!emp.profile_id && emp.email && (
+                        <button
+                          onClick={() => handleSendInvite(emp)}
+                          disabled={invitingId === emp.id}
+                          className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
+                        >
+                          {invitingId === emp.id ? 'Sending...' : 'Send Invite'}
+                        </button>
+                      )}
                       <button
                         onClick={() => navigate(`/dashboard/employees/${emp.id}/edit`)}
                         className="text-blue-600 hover:text-blue-900"

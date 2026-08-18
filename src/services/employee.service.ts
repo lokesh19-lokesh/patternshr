@@ -34,6 +34,7 @@ export interface Employee {
   status: string;
   address: any | null;
   emergency_contact: any | null;
+  profile_id?: string | null;
   department?: Department;
   designation?: Designation;
 }
@@ -141,7 +142,7 @@ export const employeeService = {
     const { data, error } = await supabase
       .from('employees')
       .select(`
-        id, employee_id, first_name, last_name, email, phone, status, joining_date, department_id, designation_id, manager_id, date_of_birth, gender, employment_type, address, emergency_contact,
+        id, employee_id, first_name, last_name, email, phone, status, joining_date, department_id, designation_id, manager_id, date_of_birth, gender, employment_type, address, emergency_contact, profile_id,
         department:departments!employees_department_id_fkey(id, name),
         designation:designations(id, name)
       `)
@@ -245,5 +246,12 @@ export const employeeService = {
     
     if (error) throw error;
     return data as Employee | null;
+  },
+
+  async sendInvite(email: string): Promise<void> {
+    const { error } = await supabase.functions.invoke('invite-employee', {
+      body: { email }
+    });
+    if (error) throw error;
   }
 };
