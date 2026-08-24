@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '../../lib/auth/TenantProvider';
 import { reportService } from '../../services/report.service';
-import { Download, FileText, Calendar, Users, Briefcase, DollarSign } from 'lucide-react';
+import { Download, FileText, Calendar, Users, Briefcase, DollarSign, BarChart3, Filter } from 'lucide-react';
 
 type ReportType = 'employee' | 'attendance' | 'leave' | 'payroll' | 'work';
 
@@ -84,114 +84,132 @@ export const ReportsDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">Reports Dashboard</h2>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-charcoal tracking-tight flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-primary-green" />
+            <span>Reports Dashboard</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-text-grey mt-0.5">
+            Export and analyze workforce, attendance, leave, and payroll metrics.
+          </p>
+        </div>
         <button
           onClick={handleExportCSV}
           disabled={data.length === 0 || loading}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex items-center justify-center space-x-2 bg-primary-green hover:bg-deep-green active:scale-98 text-white px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50 self-start sm:self-auto"
         >
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
+          <Download className="h-4 w-4" />
+          <span>Export CSV</span>
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden">
+        {/* Responsive Tab Bar (Scrollable on mobile) */}
+        <div className="p-3 bg-light-grey/60 border-b border-gray-200">
+          <div className="flex space-x-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
             {tabs.map((tab) => {
               const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as ReportType)}
                   className={`
-                    group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm
-                    ${activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    inline-flex items-center px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm whitespace-nowrap transition-all flex-shrink-0
+                    ${isActive
+                      ? 'bg-white text-dark-green shadow-xs border border-gray-200'
+                      : 'text-text-grey hover:text-charcoal hover:bg-white/50'
                     }
                   `}
                 >
                   <Icon className={`
-                    -ml-0.5 mr-2 h-5 w-5
-                    ${activeTab === tab.id ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'}
+                    mr-2 h-4 w-4
+                    ${isActive ? 'text-primary-green' : 'text-text-grey'}
                   `} />
-                  {tab.label}
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
-          </nav>
+          </div>
         </div>
 
         {/* Filters */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center space-x-4">
+        <div className="p-4 border-b border-gray-100 bg-white">
           {activeTab === 'attendance' && (
-            <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
               <div>
-                <label className="block text-xs font-medium text-gray-700">Start Date</label>
+                <label className="block text-xs font-semibold text-charcoal mb-1">Start Date</label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="block w-full rounded-xl border border-gray-300 px-3 py-2 text-charcoal text-xs sm:text-sm focus:border-primary-green focus:outline-none focus:ring-1 focus:ring-primary-green shadow-xs"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700">End Date</label>
+                <label className="block text-xs font-semibold text-charcoal mb-1">End Date</label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="block w-full rounded-xl border border-gray-300 px-3 py-2 text-charcoal text-xs sm:text-sm focus:border-primary-green focus:outline-none focus:ring-1 focus:ring-primary-green shadow-xs"
                 />
               </div>
-            </>
+            </div>
           )}
+
           {activeTab === 'leave' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-700">Year</label>
+            <div className="max-w-xs">
+              <label className="block text-xs font-semibold text-charcoal mb-1">Year</label>
               <input
                 type="number"
                 value={year}
                 onChange={(e) => setYear(parseInt(e.target.value))}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full rounded-xl border border-gray-300 px-3 py-2 text-charcoal text-xs sm:text-sm focus:border-primary-green focus:outline-none focus:ring-1 focus:ring-primary-green shadow-xs"
               />
             </div>
           )}
+
           {['employee', 'work', 'payroll'].includes(activeTab) && (
-            <div className="text-sm text-gray-500">
-              Showing complete historical data for {tabs.find(t => t.id === activeTab)?.label}. Use CSV export for advanced filtering.
+            <div className="flex items-center space-x-2 text-xs sm:text-sm text-text-grey bg-light-grey/60 p-3 rounded-xl border border-gray-100">
+              <Filter className="h-4 w-4 text-primary-green flex-shrink-0" />
+              <span>
+                Showing complete historical records for <strong className="text-charcoal font-semibold">{tabs.find(t => t.id === activeTab)?.label}</strong>. Use CSV export for customized filtering.
+              </span>
             </div>
           )}
         </div>
 
-        {/* Data Table */}
+        {/* Data Display */}
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading data...</div>
+            <div className="p-10 text-center text-text-grey text-sm">Loading report data...</div>
           ) : data.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">No data found for this report.</div>
+            <div className="p-10 text-center text-text-grey text-sm">
+              No data records found for this report.
+            </div>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-light-grey">
                 <tr>
                   {Object.keys(data[0]).map((header) => (
                     <th
                       key={header}
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-6 py-3.5 text-left text-xs font-bold text-text-grey uppercase tracking-wider whitespace-nowrap"
                     >
-                      {header}
+                      {header.replace(/_/g, ' ')}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {data.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
+                  <tr key={idx} className="hover:bg-light-grey/50 transition-colors">
                     {Object.values(row).map((val: any, colIdx) => (
-                      <td key={colIdx} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {val?.toString() || '-'}
+                      <td key={colIdx} className="px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-charcoal font-medium">
+                        {val?.toString() || '—'}
                       </td>
                     ))}
                   </tr>
@@ -204,3 +222,4 @@ export const ReportsDashboard: React.FC = () => {
     </div>
   );
 };
+
