@@ -218,52 +218,45 @@ export const workService = {
     const dateVal = data.report_date || new Date().toISOString().split('T')[0];
     const descVal = data.description || 'Daily work report';
 
-    // Payload supporting both schema variations
     const payload: any = {
       company_id: companyId,
       employee_id: employeeId,
       project_id: data.project_id || null,
+      report_date: dateVal,
+      date: dateVal,
       hours_worked: data.hours_worked || 8,
-      status: 'pending',
+      description: descVal,
+      tasks_completed: descVal,
       attachment_url: data.attachment_url || null,
+      attachment_name: data.attachment_name || null,
+      status: 'pending',
     };
 
-    // Include both date and report_date, description and tasks_completed
-    payload.date = dateVal;
-    payload.report_date = dateVal;
-    payload.tasks_completed = descVal;
-    payload.description = descVal;
-
-    let { data: result, error } = await supabase
+    let result: any = null;
+    const { data: inserted, error } = await supabase
       .from('work_reports')
       .insert(payload)
       .select()
       .single();
 
-    // If schema strictly rejected one of the extra columns, sanitize and retry
-    if (error) {
-      console.warn('Insert with full payload had error, retrying standard schema', error);
-      const safePayload = {
+    if (!error && inserted) {
+      result = inserted;
+    } else {
+      console.warn('Initial insert error, retrying standard payload', error);
+      const retryPayload: any = {
         company_id: companyId,
         employee_id: employeeId,
         project_id: data.project_id || null,
-        date: dateVal,
-        tasks_completed: descVal,
-        description: descVal,
+        report_date: dateVal,
         hours_worked: data.hours_worked || 8,
-        status: 'pending',
+        description: descVal,
         attachment_url: data.attachment_url || null,
+        status: 'pending',
       };
 
-      const retryRes = await supabase
-        .from('work_reports')
-        .insert(safePayload)
-        .select()
-        .single();
-
+      const retryRes = await supabase.from('work_reports').insert(retryPayload).select().single();
       if (retryRes.error) {
-        // Fallback for minimal schema
-        const minimalPayload = {
+        const minimalPayload: any = {
           company_id: companyId,
           employee_id: employeeId,
           project_id: data.project_id || null,
@@ -280,6 +273,36 @@ export const workService = {
       }
     }
 
+    // Trigger Notification for Workspace Owner/Admins
+    try {
+      const { data: comp } = await supabase
+        .from('companies')
+        .select('owner_id')
+        .eq('id', companyId)
+        .maybeSingle();
+
+      const { data: emp } = await supabase
+        .from('employees')
+        .select('first_name, last_name')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+      if (comp?.owner_id) {
+        const { notificationService } = await import('./notification.service');
+        const empName = `${emp?.first_name || 'An employee'} ${emp?.last_name || ''}`.trim();
+        await notificationService.createNotification({
+          company_id: companyId,
+          user_id: comp.owner_id,
+          title: 'New Work Report Submitted',
+          message: `${empName} logged ${data.hours_worked || 8} hrs on ${new Date(dateVal).toLocaleDateString()}`,
+          type: 'report_submitted',
+          reference_id: result?.id || null,
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Could not dispatch submit notification', notifErr);
+    }
+
     return result as WorkReport;
   },
 
@@ -288,10 +311,40 @@ export const workService = {
       .from('work_reports')
       .update({ status })
       .eq('id', reportId)
-      .select()
+      .select('*, employee:employees(user_id, profile_id, first_name), project:projects(name)')
       .single();
     
-    if (error) throw error;
+    if (error) {
+      // Fallback update without joins
+      const { data: simpleResult, error: simpleError } = await supabase
+        .from('work_reports')
+        .update({ status })
+        .eq('id', reportId)
+        .select()
+        .single();
+      if (simpleError) throw simpleError;
+      return simpleResult as WorkReport;
+    }
+
+    // Trigger Notification for Employee
+    try {
+      const empUserId = (result as any)?.employee?.user_id || (result as any)?.employee?.profile_id;
+      if (empUserId) {
+        const { notificationService } = await import('./notification.service');
+        const isApproved = status === 'approved';
+        await notificationService.createNotification({
+          company_id: result.company_id,
+          user_id: empUserId,
+          title: isApproved ? 'Work Report Approved' : 'Work Report Needs Revision',
+          message: `Your work report for ${(result as any)?.project?.name || 'work'} on ${new Date(result.report_date || result.created_at).toLocaleDateString()} was ${isApproved ? 'approved' : 'marked for revision'}.`,
+          type: 'report_status',
+          reference_id: reportId,
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Could not dispatch status notification', notifErr);
+    }
+
     return result as WorkReport;
   },
 
@@ -379,6 +432,71 @@ export const workService = {
       throw error;
     }
 
+    // Broadcast instantly to active chat rooms
+    try {
+      const channelName = `report_chat_${reportId}`;
+      const chatChannel = supabase.channel(channelName, {
+        config: { broadcast: { self: true } }
+      });
+      chatChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          chatChannel.send({
+            type: 'broadcast',
+            event: 'new_comment',
+            payload: { reportId, commentId: data.id },
+          });
+        }
+      });
+    } catch (bErr) {
+      console.warn('Broadcast error', bErr);
+    }
+
+    // Trigger Notifications on Comment/Message
+    try {
+      const { data: rep } = await supabase
+        .from('work_reports')
+        .select('*, employee:employees(id, user_id, profile_id, first_name, last_name), project:projects(name)')
+        .eq('id', reportId)
+        .maybeSingle();
+
+      const repEmpUserId = rep?.employee?.user_id || rep?.employee?.profile_id;
+      const repEmpId = rep?.employee?.id;
+      const { notificationService } = await import('./notification.service');
+
+      // If commenter is NOT the employee (i.e. Admin/Reviewer commenting):
+      if (repEmpUserId && repEmpUserId !== authorId && repEmpId !== authorId) {
+        await notificationService.createNotification({
+          company_id: companyId,
+          user_id: repEmpUserId,
+          title: 'New Feedback on Work Report',
+          message: `Reviewer feedback on ${rep?.project?.name || 'work report'}: "${text.length > 70 ? text.substring(0, 67) + '...' : text}"`,
+          type: 'report_feedback',
+          reference_id: reportId,
+        });
+      } else {
+        // Commenter IS the employee (i.e. replying to reviewer):
+        const { data: comp } = await supabase
+          .from('companies')
+          .select('owner_id')
+          .eq('id', companyId)
+          .maybeSingle();
+
+        const empName = `${rep?.employee?.first_name || 'Employee'} ${rep?.employee?.last_name || ''}`.trim();
+        if (comp?.owner_id && comp.owner_id !== authorId) {
+          await notificationService.createNotification({
+            company_id: companyId,
+            user_id: comp.owner_id,
+            title: 'New Work Report Reply',
+            message: `${empName} replied: "${text.length > 70 ? text.substring(0, 67) + '...' : text}"`,
+            type: 'report_reply',
+            reference_id: reportId,
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.warn('Could not dispatch comment notification', notifErr);
+    }
+
     return {
       id: data.id,
       report_id: data.work_report_id || reportId,
@@ -392,6 +510,7 @@ export const workService = {
   openDocument(url: string, fileName?: string) {
     if (!url) return;
 
+    // Handle Base64 Data URLs cleanly
     if (url.startsWith('data:')) {
       try {
         const arr = url.split(',');
@@ -456,15 +575,28 @@ export const workService = {
       )
       .subscribe();
 
+    // 4-second polling fallback for reports table
+    const interval = setInterval(() => {
+      callback();
+    }, 4000);
+
     return () => {
+      clearInterval(interval);
       supabase.removeChannel(channel);
     };
   },
 
   subscribeToReportComments(reportId: string, callback: () => void) {
-    const channelId = `work_comments_rep_${reportId}_${Math.random().toString(36).substring(2, 9)}`;
+    const channelName = `report_chat_${reportId}`;
     const channel = supabase
-      .channel(channelId)
+      .channel(channelName, {
+        config: {
+          broadcast: { self: true },
+        },
+      })
+      .on('broadcast', { event: 'new_comment' }, () => {
+        callback();
+      })
       .on(
         'postgres_changes',
         {
@@ -474,6 +606,7 @@ export const workService = {
         },
         (payload: any) => {
           if (
+            !payload.new ||
             payload.new?.work_report_id === reportId ||
             payload.new?.report_id === reportId ||
             payload.old?.work_report_id === reportId
@@ -484,7 +617,13 @@ export const workService = {
       )
       .subscribe();
 
+    // 2-second polling fallback while chat conversation is open
+    const interval = setInterval(() => {
+      callback();
+    }, 2000);
+
     return () => {
+      clearInterval(interval);
       supabase.removeChannel(channel);
     };
   }
