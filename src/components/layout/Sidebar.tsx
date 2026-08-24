@@ -13,7 +13,8 @@ import {
   BarChart, 
   CreditCard,
   X,
-  ShieldCheck
+  ShieldCheck,
+  CheckSquare
 } from 'lucide-react';
 import { useTenant } from '../../lib/auth/TenantProvider';
 
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose = () =
     { name: 'Leaves', href: '/dashboard/leave', icon: Calendar, visible: true },
     { name: 'Leave Approvals', href: '/dashboard/leave/approvals', icon: Calendar, visible: isManager },
     { name: 'Work Reports', href: '/dashboard/work', icon: ClipboardList, visible: true },
+    { name: 'Report Reviews', href: '/dashboard/work/reviews', icon: CheckSquare, visible: isManager },
     { name: 'Payroll', href: '/dashboard/payroll', icon: DollarSign, visible: true },
     { name: 'Employees', href: '/dashboard/employees', icon: Users, visible: isManager },
     { name: 'Departments', href: '/dashboard/departments', icon: Building2, visible: isAdminOrHr },

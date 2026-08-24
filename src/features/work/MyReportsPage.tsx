@@ -8,20 +8,23 @@ import { employeeService } from '../../services/employee.service';
 import type { Employee } from '../../services/employee.service';
 import { workService } from '../../services/work.service';
 import type { Project, WorkReport } from '../../services/work.service';
-import { AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertCircle, UploadCloud, FileText, Paperclip, X, ExternalLink, CheckSquare } from 'lucide-react';
 
 const reportSchema = z.object({
-  project_id: z.string().min(1, 'Please select a project'),
+  project_name: z.string().min(1, 'Please enter a project or task name'),
   report_date: z.string().min(1, 'Date is required'),
   hours_worked: z.coerce.number().min(0.5, 'Minimum 0.5 hours').max(24, 'Maximum 24 hours'),
-  description: z.string().min(10, 'Please provide a detailed description (min 10 chars)'),
+  description: z.string().min(5, 'Please provide a task description (min 5 chars)'),
 });
 
 type ReportForm = z.infer<typeof reportSchema>;
 
 export const MyReportsPage: React.FC = () => {
   const { user } = useAuth();
-  const { company } = useTenant();
+  const { company, role } = useTenant();
+  const normalizedRole = role?.name?.toLowerCase() || '';
+  const isManager = normalizedRole.includes('manager') || normalizedRole.includes('admin') || normalizedRole.includes('hr') || normalizedRole.includes('owner');
   
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -29,17 +32,22 @@ export const MyReportsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
+  // Document attachment state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ReportForm>({
     resolver: zodResolver(reportSchema) as any,
     defaultValues: {
-      report_date: new Date().toISOString().split('T')[0]
+      report_date: new Date().toISOString().split('T')[0],
+      hours_worked: 8,
     }
   });
 
-  const loadData = async () => {
+  const loadData = async (isBackground = false) => {
     if (!company || !user) return;
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const emp = await employeeService.getCurrentEmployee(company.id, user.id);
       setEmployee(emp);
 
@@ -54,155 +62,345 @@ export const MyReportsPage: React.FC = () => {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
+
+    if (!company) return;
+    const unsubscribe = workService.subscribeToWorkReports(company.id, () => {
+      loadData(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [company, user]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
 
   const onSubmit = async (data: ReportForm) => {
     if (!company || !employee) return;
     try {
-      await workService.submitReport(company.id, employee.id, data);
+      setUploadingFile(true);
+
+      // 1. Upload attachment if present
+      let attachmentUrl: string | null = null;
+      let attachmentName: string | null = null;
+      if (selectedFile) {
+        const uploadRes = await workService.uploadAttachment(company.id, selectedFile);
+        attachmentUrl = uploadRes.url;
+        attachmentName = uploadRes.name;
+      }
+
+      // 2. Find or auto-create project from typed name
+      const projectId = await workService.findOrCreateProject(company.id, data.project_name);
+
+      // 3. Submit report
+      await workService.submitReport(company.id, employee.id, {
+        project_id: projectId,
+        report_date: data.report_date,
+        hours_worked: data.hours_worked,
+        description: data.description,
+        attachment_url: attachmentUrl,
+        attachment_name: attachmentName,
+      });
+
       reset();
+      setSelectedFile(null);
       setShowForm(false);
       loadData();
     } catch (err) {
       console.error(err);
-      alert('Failed to submit report');
+      alert('Failed to submit work report');
+    } finally {
+      setUploadingFile(false);
     }
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-500">Loading your reports...</div>;
+    return <div className="p-8 text-center text-text-grey text-sm">Loading your work reports...</div>;
   }
 
   if (!employee) {
     return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 flex flex-col items-center">
-        <AlertCircle className="h-10 w-10 text-yellow-500 mb-2" />
-        <h3 className="text-lg font-medium text-yellow-800">No Employee Profile Found</h3>
-        <p className="text-yellow-700 mt-1">Your account is not linked to an employee profile. You cannot log work.</p>
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex flex-col items-center">
+        <AlertCircle className="h-10 w-10 text-amber-500 mb-2" />
+        <h3 className="text-base font-bold text-charcoal">No Employee Profile Found</h3>
+        <p className="text-xs sm:text-sm text-text-grey mt-1">Your account is not linked to an employee profile. You cannot log work.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">My Work Reports</h2>
-          <p className="mt-1 text-sm text-gray-500">Log your daily tasks and hours.</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-charcoal tracking-tight">My Work Reports</h2>
+          <p className="mt-0.5 text-xs sm:text-sm text-text-grey">Log your daily tasks, hours worked, and work documents.</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium text-sm"
-        >
-          {showForm ? 'Cancel' : 'Log Work'}
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {isManager && (
+            <Link
+              to="/dashboard/work/reviews"
+              className="inline-flex items-center justify-center space-x-1.5 bg-white hover:bg-light-grey text-charcoal border border-gray-200/80 px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs transition-all"
+            >
+              <CheckSquare className="h-4 w-4 text-primary-green" />
+              <span>Review Employee Reports</span>
+            </Link>
+          )}
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="inline-flex items-center justify-center bg-primary-green hover:bg-deep-green active:scale-98 text-white px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all"
+          >
+            {showForm ? 'Cancel' : 'Log Work'}
+          </button>
+        </div>
       </div>
 
       {showForm && (
-        <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
+        <div className="bg-white p-5 sm:p-7 rounded-2xl shadow-sm border border-gray-200/80">
+          <h3 className="text-base sm:text-lg font-bold text-charcoal mb-4">Submit Daily Work Report</h3>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Project</label>
-                <select
-                  {...register('project_id')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                >
-                  <option value="">Select Project</option>
-                  {projects.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                <label className="block text-xs font-semibold text-charcoal uppercase tracking-wider mb-1.5">
+                  Project / Task Name
+                </label>
+                <input
+                  type="text"
+                  list="project-suggestions"
+                  {...register('project_name')}
+                  placeholder="e.g. Website Redesign, Client Marketing, Sprint 4"
+                  className="block w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-charcoal text-sm focus:border-primary-green focus:outline-none focus:ring-1 focus:ring-primary-green shadow-xs bg-white"
+                />
+                <datalist id="project-suggestions">
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.name} />
                   ))}
-                </select>
-                {errors.project_id && <p className="mt-1 text-sm text-red-600">{errors.project_id.message}</p>}
+                </datalist>
+                {errors.project_name && <p className="mt-1 text-xs text-red-600">{errors.project_name.message}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Date</label>
+                <label className="block text-xs font-semibold text-charcoal uppercase tracking-wider mb-1.5">
+                  Date
+                </label>
                 <input
                   type="date"
                   {...register('report_date')}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="block w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-charcoal text-sm focus:border-primary-green focus:outline-none focus:ring-1 focus:ring-primary-green shadow-xs"
                 />
-                {errors.report_date && <p className="mt-1 text-sm text-red-600">{errors.report_date.message}</p>}
+                {errors.report_date && <p className="mt-1 text-xs text-red-600">{errors.report_date.message}</p>}
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">Hours Worked</label>
+              <div>
+                <label className="block text-xs font-semibold text-charcoal uppercase tracking-wider mb-1.5">
+                  Hours Worked
+                </label>
                 <input
                   type="number"
                   step="0.5"
+                  min="0.5"
+                  max="24"
                   {...register('hours_worked')}
-                  className="mt-1 block w-32 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="block w-full sm:w-44 rounded-xl border border-gray-300 px-3.5 py-2.5 text-charcoal text-sm focus:border-primary-green focus:outline-none focus:ring-1 focus:ring-primary-green shadow-xs"
                 />
-                {errors.hours_worked && <p className="mt-1 text-sm text-red-600">{errors.hours_worked.message}</p>}
+                {errors.hours_worked && <p className="mt-1 text-xs text-red-600">{errors.hours_worked.message}</p>}
+              </div>
+
+              {/* Upload Document / Attachment */}
+              <div>
+                <label className="block text-xs font-semibold text-charcoal uppercase tracking-wider mb-1.5">
+                  Attach Work Document (Optional)
+                </label>
+                {selectedFile ? (
+                  <div className="flex items-center justify-between p-2.5 rounded-xl border border-primary-green/30 bg-soft-green/50 text-xs text-charcoal">
+                    <div className="flex items-center space-x-2 truncate">
+                      <FileText className="h-4 w-4 text-primary-green flex-shrink-0" />
+                      <span className="font-semibold truncate">{selectedFile.name}</span>
+                      <span className="text-text-grey text-[11px]">({(selectedFile.size / 1024).toFixed(0)} KB)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFile(null)}
+                      className="p-1 hover:bg-white rounded-lg text-text-grey hover:text-red-600 transition-colors ml-2"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center space-x-2 border-2 border-dashed border-gray-200 hover:border-primary-green/60 rounded-xl p-2.5 cursor-pointer bg-light-grey/60 hover:bg-soft-green/30 transition-colors">
+                    <UploadCloud className="h-4 w-4 text-primary-green" />
+                    <span className="text-xs font-semibold text-charcoal">Upload Document (PDF, DOCX, XLSX, Image)</span>
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.zip"
+                    />
+                  </label>
+                )}
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">Task Description</label>
+                <label className="block text-xs font-semibold text-charcoal uppercase tracking-wider mb-1.5">
+                  Task Description / Summary
+                </label>
                 <textarea
                   {...register('description')}
                   rows={4}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                  placeholder="What did you work on?"
+                  className="block w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-charcoal text-sm focus:border-primary-green focus:outline-none focus:ring-1 focus:ring-primary-green shadow-xs"
+                  placeholder="Summarize the tasks and progress achieved today..."
                 />
-                {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>}
+                {errors.description && <p className="mt-1 text-xs text-red-600">{errors.description.message}</p>}
               </div>
             </div>
 
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end pt-2">
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
+                disabled={isSubmitting || uploadingFile}
+                className="bg-primary-green hover:bg-deep-green active:scale-98 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 inline-flex items-center space-x-1.5"
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Report'}
+                <span>{uploadingFile || isSubmitting ? 'Submitting...' : 'Submit Report'}</span>
               </button>
             </div>
           </form>
         </div>
       )}
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      {/* Reports History */}
+      <div className="bg-white shadow-sm border border-gray-200/80 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-base font-bold text-charcoal">My Submitted Reports</h3>
+          <span className="text-xs text-text-grey">{reports.length} reports logged</span>
+        </div>
+
         {reports.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">You haven't submitted any reports yet.</div>
+          <div className="p-8 text-center text-text-grey text-sm">
+            You haven't submitted any work reports yet.
+          </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Project</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+          <>
+            {/* Desktop View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead className="bg-light-grey">
+                  <tr>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-text-grey uppercase tracking-wider">Date & Project</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-text-grey uppercase tracking-wider">Hours</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-text-grey uppercase tracking-wider">Description</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-text-grey uppercase tracking-wider">Document</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-text-grey uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {reports.map((report) => (
+                    <tr key={report.id} className="hover:bg-light-grey/50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-charcoal">
+                          {report.project?.name || 'General Work'}
+                        </div>
+                        <div className="text-xs text-text-grey">{new Date(report.report_date).toLocaleDateString()}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-charcoal">
+                        {report.hours_worked} hrs
+                      </td>
+                      <td className="px-6 py-4 text-xs sm:text-sm text-text-grey max-w-sm">
+                        <p className="line-clamp-2">{report.description}</p>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {report.attachment_url ? (
+                          <button
+                            type="button"
+                            onClick={() => workService.openDocument(report.attachment_url!, report.attachment_name || 'work-document')}
+                            className="inline-flex items-center space-x-1 text-xs font-bold text-primary-green hover:text-deep-green bg-soft-green border border-primary-green/20 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Paperclip className="h-3 w-3" />
+                            <span>{report.attachment_name || 'View Doc'}</span>
+                            <ExternalLink className="h-3 w-3 ml-0.5" />
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            report.status === 'approved'
+                              ? 'bg-soft-green text-dark-green border border-primary-green/30'
+                              : report.status === 'needs_revision'
+                              ? 'bg-red-50 text-red-700 border border-red-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}
+                        >
+                          {report.status === 'pending'
+                            ? 'Pending Review'
+                            : report.status === 'needs_revision'
+                            ? 'Needs Revision'
+                            : 'Approved'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile View */}
+            <div className="md:hidden divide-y divide-gray-100">
               {reports.map((report) => (
-                <tr key={report.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{new Date(report.report_date).toLocaleDateString()}</div>
-                    <div className="text-sm text-gray-500">{report.project?.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {report.hours_worked}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    <div className="line-clamp-2 max-w-md">{report.description}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {report.status === 'pending' && <span className="inline-flex rounded-full bg-yellow-100 px-2 text-xs font-semibold leading-5 text-yellow-800">Pending Review</span>}
-                    {report.status === 'approved' && <span className="inline-flex rounded-full bg-green-100 px-2 text-xs font-semibold leading-5 text-green-800">Approved</span>}
-                    {report.status === 'needs_revision' && <span className="inline-flex rounded-full bg-red-100 px-2 text-xs font-semibold leading-5 text-red-800">Needs Revision</span>}
-                  </td>
-                </tr>
+                <div key={report.id} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-charcoal">{report.project?.name || 'General Work'}</h4>
+                      <p className="text-xs text-text-grey">{new Date(report.report_date).toLocaleDateString()}</p>
+                    </div>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        report.status === 'approved'
+                          ? 'bg-soft-green text-dark-green border border-primary-green/30'
+                          : report.status === 'needs_revision'
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}
+                    >
+                      {report.status === 'pending'
+                        ? 'Pending'
+                        : report.status === 'needs_revision'
+                        ? 'Revision'
+                        : 'Approved'}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-text-grey leading-relaxed bg-light-grey/80 p-2.5 rounded-xl">
+                    {report.description}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-1 text-xs">
+                    <span className="font-bold text-charcoal">{report.hours_worked} Hours Logged</span>
+                    {report.attachment_url && (
+                      <button
+                        type="button"
+                        onClick={() => workService.openDocument(report.attachment_url!, report.attachment_name || 'work-document')}
+                        className="inline-flex items-center space-x-1 font-bold text-primary-green bg-soft-green px-2 py-0.5 rounded-md cursor-pointer"
+                      >
+                        <Paperclip className="h-3 w-3" />
+                        <span>Document</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
     </div>
