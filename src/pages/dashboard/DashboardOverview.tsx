@@ -108,17 +108,17 @@ export const DashboardOverview: React.FC = () => {
           </div>
 
           {/* Quick Actions in Hero */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full lg:w-auto">
             <button
               onClick={() => navigate('/dashboard/employees/new')}
-              className="inline-flex items-center space-x-2 bg-white text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-95"
+              className="inline-flex items-center justify-center space-x-2 bg-white text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-95"
             >
               <UserPlus className="h-4 w-4" />
               <span>Add Employee</span>
             </button>
             <button
               onClick={() => navigate('/dashboard/leave/approvals')}
-              className="inline-flex items-center space-x-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2.5 rounded-xl font-semibold text-sm backdrop-blur-sm transition-all"
+              className="inline-flex items-center justify-center space-x-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2.5 rounded-xl font-semibold text-sm backdrop-blur-sm transition-all"
             >
               <Calendar className="h-4 w-4" />
               <span>Review Leaves ({pendingLeavesCount})</span>
@@ -135,11 +135,11 @@ export const DashboardOverview: React.FC = () => {
       <SelfServiceWidget />
 
       {/* 3. Real-Time Key Performance Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* Metric 1: Total Employees */}
         <div
           onClick={() => navigate('/dashboard/employees')}
-          className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group"
+          className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Total Workforce</span>
@@ -148,7 +148,7 @@ export const DashboardOverview: React.FC = () => {
             </div>
           </div>
           <div className="mt-4 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-gray-900">{loading ? '...' : employees.length}</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">{loading ? '...' : employees.length}</span>
             <span className="text-xs font-semibold text-green-600">{activeEmployees} active</span>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
@@ -162,7 +162,7 @@ export const DashboardOverview: React.FC = () => {
         {/* Metric 2: Today's Attendance Rate */}
         <div
           onClick={() => navigate('/dashboard/attendance')}
-          className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-green-300 transition-all cursor-pointer group"
+          className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-green-300 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Today's Attendance</span>
@@ -171,7 +171,7 @@ export const DashboardOverview: React.FC = () => {
             </div>
           </div>
           <div className="mt-4 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-gray-900">{loading ? '...' : `${attendanceRate}%`}</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">{loading ? '...' : `${attendanceRate}%`}</span>
             <span className="text-xs font-semibold text-gray-600">{presentToday} / {employees.length} present</span>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
@@ -185,7 +185,7 @@ export const DashboardOverview: React.FC = () => {
         {/* Metric 3: Pending Leave Approvals */}
         <div
           onClick={() => navigate('/dashboard/leave/approvals')}
-          className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer group"
+          className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Pending Leaves</span>
@@ -194,7 +194,7 @@ export const DashboardOverview: React.FC = () => {
             </div>
           </div>
           <div className="mt-4 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-gray-900">{loading ? '...' : pendingLeavesCount}</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">{loading ? '...' : pendingLeavesCount}</span>
             <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
               {pendingLeavesCount > 0 ? 'Requires Action' : 'All Clear'}
             </span>
@@ -210,7 +210,7 @@ export const DashboardOverview: React.FC = () => {
         {/* Metric 4: Work Reports */}
         <div
           onClick={() => navigate('/dashboard/work/reviews')}
-          className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer group"
+          className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-purple-300 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Daily Work Reports</span>
@@ -219,7 +219,7 @@ export const DashboardOverview: React.FC = () => {
             </div>
           </div>
           <div className="mt-4 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-gray-900">{loading ? '...' : todayReportsCount}</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">{loading ? '...' : todayReportsCount}</span>
             <span className="text-xs font-semibold text-gray-500">Submitted today</span>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
@@ -232,10 +232,10 @@ export const DashboardOverview: React.FC = () => {
       </div>
 
       {/* 4. Two-Column Dashboard Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         {/* Left 2 Columns: Live Today's Attendance Roster Preview */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-5 sm:p-6">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -266,7 +266,7 @@ export const DashboardOverview: React.FC = () => {
             ) : (
               <div className="divide-y divide-gray-100 mt-2">
                 {todayAttendance.slice(0, 5).map(record => (
-                  <div key={record.id} className="py-3.5 flex items-center justify-between hover:bg-gray-50/80 px-2 rounded-xl transition-colors">
+                  <div key={record.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-gray-50/80 px-2 rounded-xl transition-colors">
                     <div className="flex items-center space-x-3">
                       <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-sm">
                         {record.employee?.first_name?.[0] || 'E'}{record.employee?.last_name?.[0] || ''}
@@ -281,8 +281,8 @@ export const DashboardOverview: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
+                    <div className="flex items-center justify-between sm:justify-end space-x-4 pl-12 sm:pl-0">
+                      <div className="text-left sm:text-right">
                         <div className="text-xs font-bold text-gray-800">
                           {record.check_in ? new Date(record.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
                         </div>
