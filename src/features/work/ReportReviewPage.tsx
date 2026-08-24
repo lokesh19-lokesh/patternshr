@@ -292,10 +292,12 @@ export const ReportReviewPage: React.FC = () => {
                     comments.map((c) => (
                       <div key={c.id} className="bg-white p-3.5 rounded-xl shadow-xs border border-gray-100 text-xs sm:text-sm">
                         <div className="flex justify-between items-center mb-1">
-                          <span className="font-bold text-charcoal">Reviewer Feedback</span>
-                          <span className="text-[11px] text-text-grey">{new Date(c.created_at).toLocaleTimeString()}</span>
+                          <span className="font-bold text-charcoal">
+                            {c.author ? `${c.author.first_name} ${c.author.last_name || ''}` : 'Reviewer / Admin'}
+                          </span>
+                          <span className="text-[11px] text-text-grey">{new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
-                        <p className="text-text-grey">{c.comment_text}</p>
+                        <p className="text-text-grey leading-relaxed">{c.comment_text}</p>
                       </div>
                     ))
                   )}

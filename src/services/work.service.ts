@@ -299,98 +299,91 @@ export const workService = {
   async getReportComments(reportId: string): Promise<WorkReportComment[]> {
     const { data, error } = await supabase
       .from('work_report_comments')
-      .select('*')
-      .or(`work_report_id.eq.${reportId},report_id.eq.${reportId}`)
+      .select('*, employee:employees(first_name, last_name)')
+      .eq('work_report_id', reportId)
       .order('created_at', { ascending: true });
 
-    if (error) {
+    if (error || !data) {
       const { data: fallbackData } = await supabase
         .from('work_report_comments')
         .select('*')
         .eq('work_report_id', reportId)
         .order('created_at', { ascending: true });
 
-      if (!fallbackData) return [];
-      return fallbackData.map((c: any) => ({
+      return (fallbackData || []).map((c: any) => ({
         id: c.id,
         report_id: c.work_report_id || c.report_id || reportId,
         author_id: c.employee_id || c.author_id || '',
         comment_text: c.comment || c.comment_text || '',
         created_at: c.created_at,
+        author: c.employee ? { first_name: c.employee.first_name, last_name: c.employee.last_name } : undefined,
       }));
     }
 
-    return (data || []).map((c: any) => ({
+    return data.map((c: any) => ({
       id: c.id,
       report_id: c.work_report_id || c.report_id || reportId,
       author_id: c.employee_id || c.author_id || '',
       comment_text: c.comment || c.comment_text || '',
       created_at: c.created_at,
+      author: c.employee ? { first_name: c.employee.first_name, last_name: c.employee.last_name } : undefined,
     }));
   },
 
   async addReportComment(companyId: string, reportId: string, authorId: string, text: string): Promise<WorkReportComment> {
-    // Resolve employee ID if authorId is Supabase Auth user ID
-    let empId = authorId;
+    // Check if authorId is an employee in this company
+    let validEmployeeId: string | null = null;
     try {
-      const { data: emp } = await supabase
+      // 1. Check if authorId is already a valid employee ID
+      const { data: empById } = await supabase
         .from('employees')
         .select('id')
         .eq('company_id', companyId)
-        .eq('user_id', authorId)
+        .eq('id', authorId)
         .maybeSingle();
-      if (emp?.id) empId = emp.id;
-    } catch (e) {}
 
-    const payload: any = {
+      if (empById?.id) {
+        validEmployeeId = empById.id;
+      } else {
+        // 2. Check if authorId is user_id in employees table
+        const { data: empByUser } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('company_id', companyId)
+          .eq('user_id', authorId)
+          .maybeSingle();
+
+        if (empByUser?.id) {
+          validEmployeeId = empByUser.id;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not resolve employee for comment author', e);
+    }
+
+    const payload = {
       company_id: companyId,
       work_report_id: reportId,
-      report_id: reportId,
-      employee_id: empId,
-      author_id: empId,
+      employee_id: validEmployeeId,
       comment: text,
-      comment_text: text,
     };
 
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from('work_report_comments')
       .insert(payload)
       .select()
       .single();
 
     if (error) {
-      console.warn('Comment insert error, retrying standard schema', error);
-      const standardPayload = {
-        company_id: companyId,
-        work_report_id: reportId,
-        employee_id: empId,
-        comment: text,
-      };
-
-      const res2 = await supabase
-        .from('work_report_comments')
-        .insert(standardPayload)
-        .select()
-        .single();
-
-      if (res2.error) {
-        const minPayload = {
-          work_report_id: reportId,
-          comment: text,
-        };
-        const res3 = await supabase.from('work_report_comments').insert(minPayload).select().single();
-        if (res3.error) throw res3.error;
-        data = res3.data;
-      } else {
-        data = res2.data;
-      }
+      console.error('Failed to insert work report comment', error);
+      throw error;
     }
 
     return {
       id: data.id,
-      report_id: data.work_report_id || data.report_id || reportId,
-      author_id: data.employee_id || data.author_id || authorId,
-      comment_text: data.comment || data.comment_text || text,
+      report_id: data.work_report_id || reportId,
+      author_id: data.employee_id || authorId,
+      comment_text: data.comment || text,
       created_at: data.created_at || new Date().toISOString(),
     };
   },
@@ -441,6 +434,18 @@ export const workService = {
           event: '*',
           schema: 'public',
           table: 'work_reports',
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          callback();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'work_report_comments',
           filter: `company_id=eq.${companyId}`,
         },
         () => {
