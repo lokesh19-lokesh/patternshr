@@ -434,10 +434,11 @@ export const workService = {
           event: '*',
           schema: 'public',
           table: 'work_reports',
-          filter: `company_id=eq.${companyId}`,
         },
-        () => {
-          callback();
+        (payload: any) => {
+          if (!payload.new || payload.new.company_id === companyId || !payload.new.company_id) {
+            callback();
+          }
         }
       )
       .on(
@@ -446,10 +447,39 @@ export const workService = {
           event: '*',
           schema: 'public',
           table: 'work_report_comments',
-          filter: `company_id=eq.${companyId}`,
         },
-        () => {
-          callback();
+        (payload: any) => {
+          if (!payload.new || payload.new.company_id === companyId || !payload.new.company_id) {
+            callback();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
+  subscribeToReportComments(reportId: string, callback: () => void) {
+    const channelId = `work_comments_rep_${reportId}_${Math.random().toString(36).substring(2, 9)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'work_report_comments',
+        },
+        (payload: any) => {
+          if (
+            payload.new?.work_report_id === reportId ||
+            payload.new?.report_id === reportId ||
+            payload.old?.work_report_id === reportId
+          ) {
+            callback();
+          }
         }
       )
       .subscribe();

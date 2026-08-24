@@ -72,21 +72,33 @@ export const MyReportsPage: React.FC = () => {
     }
   };
 
+  const selectedReportRef = React.useRef<WorkReport | null>(null);
+  selectedReportRef.current = selectedReport;
+
   useEffect(() => {
     loadData();
 
     if (!company) return;
     const unsubscribe = workService.subscribeToWorkReports(company.id, () => {
       loadData(true);
-      if (selectedReport) {
-        loadComments(selectedReport.id);
+      if (selectedReportRef.current) {
+        loadComments(selectedReportRef.current.id);
       }
     });
 
     return () => {
       unsubscribe();
     };
-  }, [company, user, selectedReport]);
+  }, [company, user]);
+
+  // Dedicated realtime listener for open modal comments
+  useEffect(() => {
+    if (!selectedReport?.id) return;
+    const unsubComments = workService.subscribeToReportComments(selectedReport.id, () => {
+      loadComments(selectedReport.id);
+    });
+    return () => unsubComments();
+  }, [selectedReport?.id]);
 
   const loadComments = async (reportId: string) => {
     try {

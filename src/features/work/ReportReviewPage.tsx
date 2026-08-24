@@ -16,13 +16,25 @@ export const ReportReviewPage: React.FC = () => {
   const [newComment, setNewComment] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'needs_revision'>('all');
 
+  const activeReportRef = React.useRef<WorkReport | null>(null);
+  activeReportRef.current = activeReport;
+
+  const loadComments = async (reportId: string) => {
+    try {
+      const reportComments = await workService.getReportComments(reportId);
+      setComments(reportComments);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const loadData = async (isBackground = false) => {
     if (!company) return;
     try {
       if (!isBackground) setLoading(true);
       const data = await workService.getAllCompanyReports(company.id, 'all');
       setReports(data);
-      if (data.length > 0 && !activeReport) {
+      if (data.length > 0 && !activeReportRef.current) {
         handleSelectReport(data[0]);
       }
     } catch (err) {
@@ -39,6 +51,9 @@ export const ReportReviewPage: React.FC = () => {
 
     const unsubscribe = workService.subscribeToWorkReports(company.id, () => {
       loadData(true);
+      if (activeReportRef.current) {
+        loadComments(activeReportRef.current.id);
+      }
     });
 
     return () => {
@@ -46,14 +61,18 @@ export const ReportReviewPage: React.FC = () => {
     };
   }, [company]);
 
+  // Dedicated realtime listener for active report comments
+  useEffect(() => {
+    if (!activeReport?.id) return;
+    const unsubComments = workService.subscribeToReportComments(activeReport.id, () => {
+      loadComments(activeReport.id);
+    });
+    return () => unsubComments();
+  }, [activeReport?.id]);
+
   const handleSelectReport = async (report: WorkReport) => {
     setActiveReport(report);
-    try {
-      const reportComments = await workService.getReportComments(report.id);
-      setComments(reportComments);
-    } catch (err) {
-      console.error(err);
-    }
+    loadComments(report.id);
   };
 
   const handleAddComment = async () => {
