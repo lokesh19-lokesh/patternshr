@@ -13,22 +13,28 @@ import {
   BarChart,
   CreditCard
 } from 'lucide-react';
-
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Attendance', href: '/dashboard/attendance', icon: Clock },
-  { name: 'Time Off', href: '/dashboard/leave', icon: Calendar },
-  { name: 'Work Reports', href: '/dashboard/work', icon: ClipboardList },
-  { name: 'Payroll', href: '/dashboard/payroll', icon: DollarSign },
-  { name: 'Employees', href: '/dashboard/employees', icon: Users },
-  { name: 'Departments', href: '/dashboard/departments', icon: Building2 },
-  { name: 'Designations', href: '/dashboard/designations', icon: Briefcase },
-  { name: 'Documents', href: '/dashboard/documents', icon: FileText },
-  { name: 'Reports', href: '/dashboard/reports', icon: BarChart },
-  { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
-];
+import { useTenant } from '../../lib/auth/TenantProvider';
 
 export const Sidebar: React.FC = () => {
+  const { role } = useTenant();
+  const normalizedRole = role?.name?.toLowerCase() || '';
+  const isAdminOrHr = normalizedRole.includes('admin') || normalizedRole.includes('hr') || normalizedRole.includes('owner');
+  const isManager = normalizedRole.includes('manager') || isAdminOrHr;
+
+  const navigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, visible: true },
+    { name: 'Attendance', href: '/dashboard/attendance', icon: Clock, visible: true },
+    { name: 'Time Off', href: '/dashboard/leave', icon: Calendar, visible: true },
+    { name: 'Work Reports', href: '/dashboard/work', icon: ClipboardList, visible: true },
+    { name: 'Payroll', href: '/dashboard/payroll', icon: DollarSign, visible: true },
+    { name: 'Employees', href: '/dashboard/employees', icon: Users, visible: isManager },
+    { name: 'Departments', href: '/dashboard/departments', icon: Building2, visible: isAdminOrHr },
+    { name: 'Designations', href: '/dashboard/designations', icon: Briefcase, visible: isAdminOrHr },
+    { name: 'Documents', href: '/dashboard/documents', icon: FileText, visible: isAdminOrHr },
+    { name: 'Reports', href: '/dashboard/reports', icon: BarChart, visible: isAdminOrHr },
+    { name: 'Billing', href: '/dashboard/billing', icon: CreditCard, visible: isAdminOrHr },
+  ].filter(item => item.visible);
+
   return (
     <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200">
       <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">

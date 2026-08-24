@@ -60,8 +60,9 @@ export const notificationService = {
 
   // Realtime Subscription
   subscribe(userId: string, callback: (payload: any) => void) {
+    const channelId = `notifications_${userId}_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel(`public:notifications:user_id=eq.${userId}`)
+      .channel(channelId)
       .on(
         'postgres_changes',
         {

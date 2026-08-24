@@ -133,8 +133,9 @@ export const workService = {
 
   // Realtime Subscriptions
   subscribeToWorkReports(companyId: string, callback: () => void) {
+    const channelId = `work_reports_company_${companyId}_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel(`work_reports_company_${companyId}`)
+      .channel(channelId)
       .on(
         'postgres_changes',
         {

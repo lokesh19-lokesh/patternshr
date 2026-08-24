@@ -207,8 +207,9 @@ export const leaveService = {
 
   // Realtime Subscriptions
   subscribeToLeaveRequests(companyId: string, callback: () => void) {
+    const channelId = `leave_requests_company_${companyId}_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel(`leave_requests_company_${companyId}`)
+      .channel(channelId)
       .on(
         'postgres_changes',
         {

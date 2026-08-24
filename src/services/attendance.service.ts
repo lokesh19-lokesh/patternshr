@@ -39,6 +39,18 @@ export const attendanceService = {
     return data as AttendanceRecord | null;
   },
 
+  async getEmployeeAttendanceHistory(employeeId: string): Promise<AttendanceRecord[]> {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .order('date', { ascending: false })
+      .limit(30);
+
+    if (error) throw error;
+    return (data as unknown) as AttendanceRecord[];
+  },
+
   async checkIn(companyId: string, employeeId: string, date: string): Promise<AttendanceRecord> {
     const { data, error } = await supabase
       .from('attendance')
@@ -88,8 +100,9 @@ export const attendanceService = {
 
   // Realtime Subscriptions
   subscribeToAttendance(companyId: string, callback: () => void) {
+    const channelId = `attendance_company_${companyId}_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel(`attendance_company_${companyId}`)
+      .channel(channelId)
       .on(
         'postgres_changes',
         {
@@ -110,8 +123,9 @@ export const attendanceService = {
   },
 
   subscribeToEmployeeAttendance(employeeId: string, callback: () => void) {
+    const channelId = `attendance_emp_${employeeId}_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel(`attendance_employee_${employeeId}`)
+      .channel(channelId)
       .on(
         'postgres_changes',
         {

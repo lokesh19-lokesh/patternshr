@@ -26,17 +26,23 @@ export interface TenantContextData {
 
 export const tenantService = {
   async getUserTenantData(): Promise<TenantContextData | null> {
+    // 0. Get current authenticated user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
     // 1. Get the current user's membership
     const { data: memberData, error: memberError } = await supabase
       .from('company_members')
       .select(`
         company_id,
         role_id,
+        user_id,
         companies ( id, name, logo_url ),
         roles ( id, name, is_system_role )
       `)
+      .eq('user_id', user.id)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (memberError || !memberData) {
       return null;
