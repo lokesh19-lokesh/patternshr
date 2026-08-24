@@ -17,6 +17,20 @@ module.exports = {
     },
     extend: {
       colors: {
+        'primary-green': '#00C853',
+        'deep-green': '#008F3C',
+        'dark-green': '#006B2D',
+        'charcoal': '#171A1C',
+        'text-grey': '#5F6663',
+        'light-grey': '#F5F7F6',
+        'soft-green': '#E8F8EE',
+        brand: {
+          50: '#E8F8EE',
+          100: '#C8F2D8',
+          500: '#00C853',
+          600: '#008F3C',
+          700: '#006B2D',
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

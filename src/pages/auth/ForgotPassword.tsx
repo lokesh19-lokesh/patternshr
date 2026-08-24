@@ -104,20 +104,19 @@ export const ForgotPassword: React.FC = () => {
           </div>
 
           <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex w-full justify-center rounded-md bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300"
-            >
-              {loading ? 'Sending link...' : 'Send reset link'}
-            </button>
-          </div>
-          
-          <div className="text-center mt-4">
-            <Link to="/login" className="font-medium text-sm text-blue-600 hover:text-blue-500">
-              Back to Sign in
-            </Link>
-          </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full justify-center rounded-md bg-primary-green hover:bg-deep-green py-2.5 px-4 text-sm font-bold text-white shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-green focus:ring-offset-2 disabled:opacity-50 transition-all"
+              >
+                {loading ? 'Sending link...' : 'Send reset link'}
+              </button>
+            </div>
+            <div className="text-center text-sm">
+              <Link to="/login" className="font-semibold text-deep-green hover:text-dark-green transition-colors">
+                Back to sign in
+              </Link>
+            </div>
         </form>
       </div>
     </div>

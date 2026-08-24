@@ -78,13 +78,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose = () =
             className={({ isActive }) =>
               `group flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl transition-all ${
                 isActive
-                  ? 'bg-blue-50 text-blue-600 shadow-xs'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-soft-green text-dark-green shadow-xs'
+                  : 'text-charcoal hover:bg-light-grey hover:text-dark-green'
               }`
             }
           >
             <item.icon
-              className="mr-3 h-4 w-4 flex-shrink-0 transition-transform group-hover:scale-110"
+              className="mr-3 h-4 w-4 flex-shrink-0 transition-transform group-hover:scale-110 text-current"
               aria-hidden="true"
             />
             <span>{item.name}</span>
@@ -93,9 +93,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose = () =
       </div>
 
       {/* Footer Role Badge */}
-      <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-        <div className="flex items-center space-x-2 text-xs text-gray-600 font-medium">
-          <ShieldCheck className="h-4 w-4 text-blue-600 flex-shrink-0" />
+      <div className="p-4 border-t border-gray-100 bg-light-grey/50">
+        <div className="flex items-center space-x-2 text-xs text-text-grey font-medium">
+          <ShieldCheck className="h-4 w-4 text-primary-green flex-shrink-0" />
           <span className="truncate">{role?.name || 'Authorized User'}</span>
         </div>
       </div>

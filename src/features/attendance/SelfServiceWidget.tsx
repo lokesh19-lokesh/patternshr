@@ -114,14 +114,14 @@ export const SelfServiceWidget: React.FC = () => {
   // If user is not linked to an employee record, provide 1-click activation
   if (!employee) {
     return (
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/70 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-soft-green border border-primary-green/30 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center space-x-4 text-center md:text-left">
-          <div className="p-3 bg-blue-600 text-white rounded-xl shadow-md">
+          <div className="p-3 bg-primary-green text-white rounded-xl shadow-md">
             <Clock className="h-6 w-6" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-gray-900">Activate Self-Service Time Clock</h3>
-            <p className="text-xs text-gray-600 mt-0.5">
+            <h3 className="text-base font-bold text-charcoal">Activate Self-Service Time Clock</h3>
+            <p className="text-xs text-text-grey mt-0.5">
               Link your admin account ({user?.email}) to enable one-click clock-in, break tracking, and daily work logs.
             </p>
           </div>
@@ -129,7 +129,7 @@ export const SelfServiceWidget: React.FC = () => {
         <button
           onClick={handleLinkProfile}
           disabled={linking}
-          className="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50 flex-shrink-0"
+          className="inline-flex items-center space-x-2 bg-primary-green hover:bg-deep-green text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50 flex-shrink-0"
         >
           <Sparkles className="h-4 w-4" />
           <span>{linking ? 'Linking Profile...' : 'Enable Time Clock'}</span>
@@ -147,29 +147,29 @@ export const SelfServiceWidget: React.FC = () => {
         {/* Left Info & Digital Clock */}
         <div className="space-y-1">
           <div className="flex items-center space-x-2.5">
-            <h3 className="text-lg font-bold text-gray-900">Time Clock</h3>
+            <h3 className="text-lg font-bold text-charcoal">Time Clock</h3>
             {isCheckedIn && !isCheckedOut && (
-              <span className="inline-flex items-center space-x-1 bg-green-50 text-green-700 border border-green-200 px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+              <span className="inline-flex items-center space-x-1 bg-soft-green text-dark-green border border-primary-green/20 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary-green animate-pulse"></span>
                 <span>Active</span>
               </span>
             )}
             {isCheckedOut && (
-              <span className="inline-flex items-center space-x-1 bg-gray-100 text-gray-700 border border-gray-200 px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                <CheckCircle className="w-3 h-3 text-gray-500" />
+              <span className="inline-flex items-center space-x-1 bg-light-grey text-charcoal border border-gray-200 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                <CheckCircle className="w-3 h-3 text-text-grey" />
                 <span>Completed</span>
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500">
-            Welcome back, <span className="font-semibold text-gray-800">{employee.first_name} {employee.last_name}</span> ({employee.employee_id})
+          <p className="text-xs text-text-grey">
+            Welcome back, <span className="font-semibold text-charcoal">{employee.first_name} {employee.last_name}</span> ({employee.employee_id})
           </p>
 
           <div className="pt-2 flex items-baseline space-x-3">
-            <div className="text-3xl font-extrabold tracking-tight font-mono text-gray-900">
+            <div className="text-3xl font-extrabold tracking-tight font-mono text-charcoal">
               {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </div>
-            <div className="text-xs font-medium text-gray-500">
+            <div className="text-xs font-medium text-text-grey">
               {currentTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
           </div>
@@ -181,7 +181,7 @@ export const SelfServiceWidget: React.FC = () => {
             <button
               onClick={handleCheckIn}
               disabled={actionLoading}
-              className="w-full sm:w-44 py-3 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+              className="w-full sm:w-44 py-3 bg-primary-green hover:bg-deep-green active:scale-98 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
             >
               <LogIn className="h-4 w-4" />
               <span>{actionLoading ? 'Clocking in...' : 'Clock In Now'}</span>

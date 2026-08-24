@@ -111,7 +111,7 @@ export const Onboarding: React.FC = () => {
           </div>
         </div>
         
-        <form className="mt-6 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           {error && (
             <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-200">
               {error}
@@ -119,12 +119,15 @@ export const Onboarding: React.FC = () => {
           )}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Company Name</label>
+              <label htmlFor="companyName" className="block text-sm font-medium text-charcoal">
+                Company Name
+              </label>
               <input
+                id="companyName"
                 type="text"
                 {...register('companyName')}
                 placeholder="e.g. Acme Corporation"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-charcoal focus:border-primary-green focus:outline-none focus:ring-1 focus:ring-primary-green sm:text-sm"
               />
               {errors.companyName && (
                 <p className="mt-1 text-sm text-red-600">{errors.companyName.message}</p>
@@ -136,9 +139,9 @@ export const Onboarding: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex w-full justify-center rounded-md bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300"
+              className="flex w-full justify-center rounded-md bg-primary-green hover:bg-deep-green py-2.5 px-4 text-sm font-bold text-white shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-green focus:ring-offset-2 disabled:opacity-50 transition-all"
             >
-              {isSubmitting ? 'Creating workspace...' : 'Create Workspace'}
+              {isSubmitting ? 'Creating Workspace...' : 'Get Started'}
             </button>
           </div>
         </form>

@@ -128,34 +128,34 @@ export const Login: React.FC = () => {
                   (e.target as HTMLElement).style.display = 'none';
                 }}
               />
-              <h2 className="text-center text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
+              <h2 className="text-center text-2xl sm:text-3xl font-bold tracking-tight text-charcoal">
                 Sign in to your account
               </h2>
-              <p className="mt-2 text-center text-sm text-gray-600">
+              <p className="mt-1.5 text-center text-xs sm:text-sm text-text-grey">
                 Or{' '}
-                <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
+                <Link to="/signup" className="font-semibold text-deep-green hover:text-dark-green transition-colors">
                   create a new company account
                 </Link>
               </p>
             </div>
 
-            <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)}>
+            <form className="mt-6 space-y-4 sm:space-y-5" onSubmit={handleSubmit(onSubmit)}>
               {error && (
-                <div className="rounded-xl bg-red-50 p-3.5 text-xs text-red-700 border border-red-200">
+                <div className="rounded-xl bg-red-50 p-3 text-xs text-red-700 border border-red-200">
                   {error}
                 </div>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-charcoal uppercase tracking-wider mb-1">
                     Email address
                   </label>
                   <input
                     type="email"
                     placeholder="name@company.com"
                     {...register('email')}
-                    className="block w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all"
+                    className="block w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-charcoal placeholder-gray-400 focus:border-primary-green focus:outline-none focus:ring-1 focus:ring-primary-green text-sm transition-all shadow-xs"
                   />
                   {errors.email && (
                     <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
@@ -163,11 +163,11 @@ export const Login: React.FC = () => {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-charcoal uppercase tracking-wider">
                       Password
                     </label>
-                    <Link to="/forgot-password" className="text-xs font-medium text-blue-600 hover:text-blue-500">
+                    <Link to="/forgot-password" className="text-xs font-medium text-deep-green hover:text-dark-green transition-colors">
                       Forgot password?
                     </Link>
                   </div>
@@ -175,7 +175,7 @@ export const Login: React.FC = () => {
                     type="password"
                     placeholder="••••••••"
                     {...register('password')}
-                    className="block w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all"
+                    className="block w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-charcoal placeholder-gray-400 focus:border-primary-green focus:outline-none focus:ring-1 focus:ring-primary-green text-sm transition-all shadow-xs"
                   />
                   {errors.password && (
                     <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
@@ -186,7 +186,7 @@ export const Login: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all disabled:opacity-50 shadow-md hover:shadow-lg mt-2"
+                className="w-full bg-primary-green hover:bg-deep-green active:scale-98 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all disabled:opacity-50 shadow-md hover:shadow-lg mt-2 tracking-wide"
               >
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>

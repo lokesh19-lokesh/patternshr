@@ -4,6 +4,17 @@
 
 @layer base {
   :root {
+    --primary-green: #00C853;
+    --dark-green: #006B2D;
+    --deep-green: #008F3C;
+
+    --charcoal: #171A1C;
+    --text-grey: #5F6663;
+
+    --white: #FFFFFF;
+    --light-grey: #F5F7F6;
+    --soft-green: #E8F8EE;
+
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
 

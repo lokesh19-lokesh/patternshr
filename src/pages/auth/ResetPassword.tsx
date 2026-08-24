@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '../../lib/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const resetPasswordSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -113,10 +113,15 @@ export const ResetPassword: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full justify-center rounded-md bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300"
+              className="flex w-full justify-center rounded-md bg-primary-green hover:bg-deep-green py-2.5 px-4 text-sm font-bold text-white shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-green focus:ring-offset-2 disabled:opacity-50 transition-all"
             >
-              {loading ? 'Updating password...' : 'Update password'}
+              {loading ? 'Updating password...' : 'Update Password'}
             </button>
+          </div>
+          <div className="text-center text-sm">
+            <Link to="/login" className="font-semibold text-deep-green hover:text-dark-green transition-colors">
+              Back to sign in
+            </Link>
           </div>
         </form>
       </div>
