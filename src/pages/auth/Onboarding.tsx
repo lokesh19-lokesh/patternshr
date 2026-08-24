@@ -82,13 +82,21 @@ export const Onboarding: React.FC = () => {
         </button>
       </div>
 
-      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-        <div>
-          <h2 className="mt-4 text-center text-3xl font-bold tracking-tight text-gray-900">
-            Welcome to PatternSHR
+      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+        <div className="text-center">
+          <img
+            src="/logo.png"
+            alt="Patterns HR"
+            className="h-16 w-auto mx-auto object-contain mb-4"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
+          <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900">
+            Set Up Your Workspace
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Let's set up your company workspace to get started.
+          <p className="mt-1.5 text-center text-sm text-gray-600">
+            Enter your company details to initialize your HR dashboard.
           </p>
           <div className="mt-4 flex items-center justify-center space-x-2 text-xs text-gray-500">
             <span>Logged in as: <strong className="font-medium text-gray-700">{user?.email}</strong></span>

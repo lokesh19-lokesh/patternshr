@@ -23,7 +23,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose = () => {} }) => {
-  const { company, role } = useTenant();
+  const { role } = useTenant();
   const normalizedRole = role?.name?.toLowerCase() || '';
   const isAdminOrHr = normalizedRole.includes('admin') || normalizedRole.includes('hr') || normalizedRole.includes('owner');
   const isManager = normalizedRole.includes('manager') || isAdminOrHr;
@@ -45,16 +45,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose = () =
   const NavContent = () => (
     <div className="flex h-full flex-col bg-white border-r border-gray-200">
       {/* Brand Header */}
-      <div className="flex items-center justify-between h-16 px-5 border-b border-gray-100 bg-white">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-md">
-            P
-          </div>
-          <div>
-            <h1 className="text-base font-extrabold text-gray-900 tracking-tight leading-tight">PatternSHR</h1>
-            <p className="text-[10px] text-gray-500 font-medium truncate max-w-[140px]">{company?.name || 'Workspace'}</p>
-          </div>
-        </div>
+      <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100 bg-white">
+        <NavLink to="/dashboard" className="flex items-center py-1">
+          <img
+            src="/logo.png"
+            alt="Patterns HR"
+            className="h-12 max-h-14 w-auto object-contain transition-transform hover:scale-105"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
+        </NavLink>
         <button
           onClick={onClose}
           className="lg:hidden text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"

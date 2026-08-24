@@ -51,10 +51,19 @@ export const Dashboard: React.FC = () => {
                 >
                   <Menu className="h-5 w-5" />
                 </button>
-                <div className="flex items-center space-x-2.5">
-                  <span className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">PatternSHR</span>
-                  <span className="hidden sm:inline-block text-gray-300">|</span>
-                  <span className="hidden sm:inline-block text-xs sm:text-sm font-semibold text-gray-600 truncate max-w-[160px] md:max-w-[220px]">
+                <div className="flex items-center space-x-3">
+                  <img
+                    src="/logo.png"
+                    alt="Patterns HR"
+                    className="h-9 sm:h-10 w-auto object-contain lg:hidden"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                  <span className="hidden lg:inline-flex items-center text-sm font-bold text-gray-700 bg-gray-50/80 border border-gray-200/80 px-3.5 py-1.5 rounded-xl">
+                    {company?.name}
+                  </span>
+                  <span className="lg:hidden text-xs sm:text-sm font-semibold text-gray-600 truncate max-w-[130px] sm:max-w-[200px]">
                     {company?.name}
                   </span>
                 </div>
