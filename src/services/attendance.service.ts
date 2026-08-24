@@ -84,5 +84,50 @@ export const attendanceService = {
 
     if (error) throw error;
     return data as AttendanceRecord;
+  },
+
+  // Realtime Subscriptions
+  subscribeToAttendance(companyId: string, callback: () => void) {
+    const channel = supabase
+      .channel(`attendance_company_${companyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance',
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          callback();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
+  subscribeToEmployeeAttendance(employeeId: string, callback: () => void) {
+    const channel = supabase
+      .channel(`attendance_employee_${employeeId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance',
+          filter: `employee_id=eq.${employeeId}`,
+        },
+        () => {
+          callback();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }
 };

@@ -14,10 +14,10 @@ export const DailyRoster: React.FC = () => {
   // Get current date string in YYYY-MM-DD
   const today = new Date().toISOString().split('T')[0];
 
-  const loadData = async () => {
+  const loadData = async (isBackground = false) => {
     if (!company) return;
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const [emps, records] = await Promise.all([
         employeeService.getEmployees(company.id),
         attendanceService.getTodayAttendance(company.id, today)
@@ -33,12 +33,23 @@ export const DailyRoster: React.FC = () => {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
+
+    if (!company) return;
+
+    // Realtime subscription for instant auto-sync across browsers
+    const unsubscribe = attendanceService.subscribeToAttendance(company.id, () => {
+      loadData(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [company]);
 
   const handleCheckIn = async (employeeId: string) => {
@@ -69,7 +80,7 @@ export const DailyRoster: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900">Daily Roster</h2>
           <p className="text-sm text-gray-500">Manage attendance for {today}</p>
         </div>
-        <button onClick={loadData} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-gray-50">
+        <button onClick={() => loadData()} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-gray-50">
           Refresh
         </button>
       </div>

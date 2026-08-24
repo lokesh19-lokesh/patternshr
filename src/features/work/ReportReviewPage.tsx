@@ -14,21 +14,31 @@ export const ReportReviewPage: React.FC = () => {
   const [comments, setComments] = useState<WorkReportComment[]>([]);
   const [newComment, setNewComment] = useState('');
 
-  const loadData = async () => {
+  const loadData = async (isBackground = false) => {
     if (!company) return;
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const data = await workService.getPendingReports(company.id);
       setReports(data);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
+
+    if (!company) return;
+
+    const unsubscribe = workService.subscribeToWorkReports(company.id, () => {
+      loadData(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [company]);
 
   const handleSelectReport = async (report: WorkReport) => {
@@ -72,7 +82,7 @@ export const ReportReviewPage: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900">Report Reviews</h2>
           <p className="mt-1 text-sm text-gray-500">Review and approve daily work reports.</p>
         </div>
-        <button onClick={loadData} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-gray-50">
+        <button onClick={() => loadData()} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-gray-50">
           Refresh
         </button>
       </div>

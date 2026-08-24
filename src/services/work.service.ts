@@ -129,5 +129,28 @@ export const workService = {
       .single();
     if (error) throw error;
     return data as WorkReportComment;
+  },
+
+  // Realtime Subscriptions
+  subscribeToWorkReports(companyId: string, callback: () => void) {
+    const channel = supabase
+      .channel(`work_reports_company_${companyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'work_reports',
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          callback();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }
 };

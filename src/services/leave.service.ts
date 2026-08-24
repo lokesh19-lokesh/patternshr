@@ -203,5 +203,28 @@ export const leaveService = {
     }
 
     return result as LeaveRequest;
+  },
+
+  // Realtime Subscriptions
+  subscribeToLeaveRequests(companyId: string, callback: () => void) {
+    const channel = supabase
+      .channel(`leave_requests_company_${companyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leave_requests',
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          callback();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }
 };

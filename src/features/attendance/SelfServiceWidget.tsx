@@ -23,10 +23,10 @@ export const SelfServiceWidget: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (isBackground = false) => {
     if (!company || !user) return;
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const emp = await employeeService.getCurrentEmployee(company.id, user.id);
       setEmployee(emp);
 
@@ -37,12 +37,23 @@ export const SelfServiceWidget: React.FC = () => {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
+
+    if (!company) return;
+
+    // Realtime subscription for instant auto-sync
+    const unsubscribe = attendanceService.subscribeToAttendance(company.id, () => {
+      loadData(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [company, user]);
 
   const handleCheckIn = async () => {

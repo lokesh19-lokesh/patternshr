@@ -278,5 +278,28 @@ export const employeeService = {
     if (data && data.error) {
       throw new Error(data.error);
     }
+  },
+
+  // Realtime Subscriptions
+  subscribeToEmployees(companyId: string, callback: () => void) {
+    const channel = supabase
+      .channel(`employees_company_${companyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'employees',
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          callback();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }
 };

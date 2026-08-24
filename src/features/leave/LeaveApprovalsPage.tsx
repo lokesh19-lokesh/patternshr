@@ -8,21 +8,31 @@ export const LeaveApprovalsPage: React.FC = () => {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadRequests = async () => {
+  const loadRequests = async (isBackground = false) => {
     if (!company) return;
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const data = await leaveService.getAllPendingRequests(company.id);
       setRequests(data);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadRequests();
+
+    if (!company) return;
+
+    const unsubscribe = leaveService.subscribeToLeaveRequests(company.id, () => {
+      loadRequests(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [company]);
 
   const handleStatusUpdate = async (id: string, status: 'approved' | 'rejected') => {
@@ -42,7 +52,7 @@ export const LeaveApprovalsPage: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900">Leave Approvals</h2>
           <p className="mt-1 text-sm text-gray-500">Review and manage employee time off requests.</p>
         </div>
-        <button onClick={loadRequests} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-gray-50">
+        <button onClick={() => loadRequests()} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-gray-50">
           Refresh
         </button>
       </div>

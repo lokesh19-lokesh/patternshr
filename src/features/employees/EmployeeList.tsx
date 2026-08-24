@@ -28,19 +28,31 @@ export const EmployeeList: React.FC = () => {
     }
   };
 
+  const loadEmployees = async (isBackground = false) => {
+    if (!company) return;
+    try {
+      if (!isBackground) setLoading(true);
+      const data = await employeeService.getEmployees(company.id);
+      setEmployees(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (!isBackground) setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadEmployees = async () => {
-      if (!company) return;
-      try {
-        const data = await employeeService.getEmployees(company.id);
-        setEmployees(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadEmployees();
+
+    if (!company) return;
+
+    const unsubscribe = employeeService.subscribeToEmployees(company.id, () => {
+      loadEmployees(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [company]);
 
   return (
