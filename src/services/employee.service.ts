@@ -254,7 +254,7 @@ export const employeeService = {
     return result;
   },
 
-  async getCurrentEmployee(companyId: string, userId: string): Promise<Employee | null> {
+  async getCurrentEmployee(companyId: string, userId: string, userEmail?: string): Promise<Employee | null> {
     const { data, error } = await supabase
       .from('employees')
       .select('*')
@@ -263,7 +263,49 @@ export const employeeService = {
       .maybeSingle();
     
     if (error) throw error;
-    return data as Employee | null;
+    if (data) return data as Employee;
+
+    // Fallback: Check by email and auto-link profile_id
+    if (userEmail) {
+      const { data: byEmail } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('company_id', companyId)
+        .ilike('email', userEmail.trim())
+        .maybeSingle();
+
+      if (byEmail) {
+        await supabase
+          .from('employees')
+          .update({ profile_id: userId })
+          .eq('id', byEmail.id);
+
+        return { ...byEmail, profile_id: userId } as Employee;
+      }
+    }
+
+    return null;
+  },
+
+  async createAdminEmployeeProfile(companyId: string, userId: string, email: string, firstName: string = 'Admin', lastName: string = 'User'): Promise<Employee> {
+    const empId = `TPC${Math.floor(1000 + Math.random() * 9000)}`;
+    const { data, error } = await supabase
+      .from('employees')
+      .insert({
+        company_id: companyId,
+        profile_id: userId,
+        employee_id: empId,
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        status: 'active',
+        joining_date: new Date().toISOString().split('T')[0]
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Employee;
   },
 
   async deleteEmployee(companyId: string, id: string): Promise<void> {
