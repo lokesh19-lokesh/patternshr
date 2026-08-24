@@ -123,7 +123,7 @@ export const Login: React.FC = () => {
               <img
                 src="/logo.png"
                 alt="Patterns HR"
-                className="h-16 w-auto mx-auto object-contain mb-4"
+                className="h-20 sm:h-24 w-auto max-w-[260px] mx-auto object-contain mb-4"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = 'none';
                 }}
