@@ -121,6 +121,19 @@ export const tenantService = {
     if (error) {
       throw error;
     }
+
+    // Link workspace in Supabase Auth user metadata so it displays in Supabase Dashboard > Authentication > Users
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          workspace_name: trimmed,
+          company_id: data,
+          role: 'Company Admin'
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to update auth metadata with workspace:', e);
+    }
     
     // Initialize the 14-day trial
     try {
@@ -148,7 +161,7 @@ export const tenantService = {
     return { email };
   },
 
-  async verifyAndDeleteWorkspace(companyId: string, email: string, otpCode: string, companyName: string): Promise<any> {
+  async verifyAndDeleteWorkspace(companyId: string, email: string, otpCode: string, companyName: string, userId?: string): Promise<any> {
     // 1. Verify OTP with Supabase Auth
     let verifyError: any = null;
     const res1 = await supabase.auth.verifyOtp({
@@ -252,6 +265,18 @@ export const tenantService = {
 
     // 3. Delete the company and cascade tables
     await supabase.from('companies').delete().eq('id', companyId);
+
+    // 4. Delete user auth accounts associated with the workspace
+    if (userId) {
+      try {
+        await supabase.rpc('delete_workspace_and_user_accounts', {
+          p_company_id: companyId,
+          p_admin_user_id: userId
+        });
+      } catch (e) {
+        console.warn('RPC delete_workspace_and_user_accounts fallback:', e);
+      }
+    }
 
     return fullBackup;
   }

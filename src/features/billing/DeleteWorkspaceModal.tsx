@@ -11,8 +11,8 @@ interface DeleteWorkspaceModalProps {
 }
 
 export const DeleteWorkspaceModal: React.FC<DeleteWorkspaceModalProps> = ({ isOpen, onClose }) => {
-  const { company, refreshTenant } = useTenant();
-  const { user } = useAuth();
+  const { company } = useTenant();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState<'notes' | 'otp'>(() => {
@@ -70,7 +70,7 @@ export const DeleteWorkspaceModal: React.FC<DeleteWorkspaceModalProps> = ({ isOp
     try {
       setLoading(true);
       setError(null);
-      const backupData = await tenantService.verifyAndDeleteWorkspace(company.id, user.email, cleanOtp, confirmName.trim());
+      const backupData = await tenantService.verifyAndDeleteWorkspace(company.id, user.email, cleanOtp, confirmName.trim(), user.id);
       
       // If backup data returned, trigger an automatic browser download as well
       if (backupData) {
@@ -87,14 +87,12 @@ export const DeleteWorkspaceModal: React.FC<DeleteWorkspaceModalProps> = ({ isOp
         }
       }
 
-      sessionStorage.removeItem('ws_del_step');
-      sessionStorage.removeItem('ws_del_email');
+      sessionStorage.clear();
+      localStorage.clear();
 
-      // Refresh tenant so the app knows user has no company
-      await refreshTenant();
-      
       onClose();
-      navigate('/onboarding', { replace: true });
+      await signOut();
+      navigate('/login', { replace: true });
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Failed to delete workspace. Please check your verification code.');
@@ -152,7 +150,7 @@ export const DeleteWorkspaceModal: React.FC<DeleteWorkspaceModalProps> = ({ isOp
                 Critical Warning — Permanent Data Wipe
               </h4>
               <p className="text-sm text-red-700 mt-1">
-                Deleting this workspace will permanently erase all company records and cannot be undone.
+                Deleting this workspace will permanently erase all company records and user login accounts. This action cannot be undone.
               </p>
             </div>
 
@@ -174,6 +172,10 @@ export const DeleteWorkspaceModal: React.FC<DeleteWorkspaceModalProps> = ({ isOp
                 What will be permanently deleted:
               </h5>
               <ul className="text-sm text-gray-600 space-y-2">
+                <li className="flex items-start">
+                  <span className="text-red-500 font-bold mr-2">•</span>
+                  <span><strong>Admin Account & Login:</strong> Your user login account will be permanently deleted and you will be signed out.</span>
+                </li>
                 <li className="flex items-start">
                   <span className="text-red-500 font-bold mr-2">•</span>
                   <span><strong>All Employee Profiles:</strong> Personal information, designations, bank details, and employee accounts.</span>
