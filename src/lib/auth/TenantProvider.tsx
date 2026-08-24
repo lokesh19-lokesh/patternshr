@@ -58,11 +58,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const userId = session?.user?.id;
+
   useEffect(() => {
     if (!authLoading) {
       fetchTenantData();
     }
-  }, [session, authLoading]);
+  }, [userId, authLoading]);
 
   const hasPermission = (action: string) => {
     if (role?.is_system_role && role.name === 'Company Admin') return true; // Admins have all permissions implicitly usually, or explicitly check. We'll grant implicitly here for safety.

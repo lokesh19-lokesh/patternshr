@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useTenant } from '../../lib/auth/TenantProvider';
 import { subscriptionService } from '../../services/subscription.service';
 import type { Subscription, SubscriptionPlan } from '../../services/subscription.service';
-import { CreditCard, Check, AlertTriangle } from 'lucide-react';
+import { CreditCard, Check, AlertTriangle, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase/client';
+import { DeleteWorkspaceModal } from './DeleteWorkspaceModal';
 
 export const BillingDashboard: React.FC = () => {
   const { company } = useTenant();
@@ -13,6 +14,7 @@ export const BillingDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     if (company) {
@@ -181,6 +183,39 @@ export const BillingDashboard: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Danger Zone: Delete Workspace (Admin Only) */}
+      <div className="mt-12 bg-white rounded-xl shadow border border-red-200 overflow-hidden">
+        <div className="px-6 py-4 bg-red-50 border-b border-red-200 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
+            <h3 className="text-lg font-bold text-red-900">Danger Zone</h3>
+          </div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full">
+            Admin Only
+          </span>
+        </div>
+        <div className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h4 className="text-base font-bold text-gray-900">Delete this Workspace</h4>
+            <p className="text-sm text-gray-500 mt-1 max-w-2xl">
+              Permanently delete <strong>{company?.name}</strong>, all employee accounts, daily attendance, work reports, payroll records, and logging history. Requires email OTP verification.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded-lg shadow-sm flex items-center space-x-2 transition-colors flex-shrink-0"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span>Delete Workspace</span>
+          </button>
+        </div>
+      </div>
+
+      <DeleteWorkspaceModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 };

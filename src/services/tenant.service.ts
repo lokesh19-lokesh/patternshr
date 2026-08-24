@@ -131,5 +131,128 @@ export const tenantService = {
     }
     
     return data;
+  },
+
+  async requestWorkspaceDeletionOtp(email: string): Promise<{ email: string }> {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false
+      }
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return { email };
+  },
+
+  async verifyAndDeleteWorkspace(companyId: string, email: string, otpCode: string, companyName: string): Promise<any> {
+    // 1. Verify OTP with Supabase Auth
+    let verifyError: any = null;
+    const res1 = await supabase.auth.verifyOtp({
+      email,
+      token: otpCode.trim(),
+      type: 'email'
+    });
+
+    if (res1.error) {
+      const res2 = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode.trim(),
+        type: 'magiclink' as any
+      });
+      if (res2.error) {
+        verifyError = res1.error;
+      }
+    }
+
+    if (verifyError) {
+      throw new Error('Invalid or expired OTP code: ' + verifyError.message);
+    }
+
+    // 2. Compile full workspace backup archive across all tables
+    const [
+      companyRes,
+      settingsRes,
+      membersRes,
+      rolesRes,
+      departmentsRes,
+      designationsRes,
+      employeesRes,
+      attendanceRes,
+      leaveTypesRes,
+      leavePoliciesRes,
+      leaveBalancesRes,
+      leaveRequestsRes,
+      salaryStructuresRes,
+      salaryComponentsRes,
+      payrollRunsRes,
+      payslipsRes,
+      projectsRes,
+      workReportsRes
+    ] = await Promise.all([
+      supabase.from('companies').select('*').eq('id', companyId),
+      supabase.from('company_settings').select('*').eq('company_id', companyId),
+      supabase.from('company_members').select('*').eq('company_id', companyId),
+      supabase.from('roles').select('*').eq('company_id', companyId),
+      supabase.from('departments').select('*').eq('company_id', companyId),
+      supabase.from('designations').select('*').eq('company_id', companyId),
+      supabase.from('employees').select('*').eq('company_id', companyId),
+      supabase.from('attendance').select('*').eq('company_id', companyId),
+      supabase.from('leave_types').select('*').eq('company_id', companyId),
+      supabase.from('leave_policies').select('*').eq('company_id', companyId),
+      supabase.from('leave_balances').select('*').eq('company_id', companyId),
+      supabase.from('leave_requests').select('*').eq('company_id', companyId),
+      supabase.from('salary_structures').select('*').eq('company_id', companyId),
+      supabase.from('salary_components').select('*').eq('company_id', companyId),
+      supabase.from('payroll_runs').select('*').eq('company_id', companyId),
+      supabase.from('payslips').select('*').eq('company_id', companyId),
+      supabase.from('projects').select('*').eq('company_id', companyId),
+      supabase.from('work_reports').select('*').eq('company_id', companyId),
+    ]);
+
+    const fullBackup = {
+      exportedAt: new Date().toISOString(),
+      deletedByAdmin: email,
+      workspace: companyRes.data?.[0] || { name: companyName },
+      settings: settingsRes.data?.[0] || null,
+      summary: {
+        totalEmployees: employeesRes.data?.length || 0,
+        totalAttendanceRecords: attendanceRes.data?.length || 0,
+        totalLeaveRequests: leaveRequestsRes.data?.length || 0,
+        totalWorkReports: workReportsRes.data?.length || 0,
+        totalPayslips: payslipsRes.data?.length || 0,
+        totalDepartments: departmentsRes.data?.length || 0
+      },
+      data: {
+        employees: employeesRes.data || [],
+        departments: departmentsRes.data || [],
+        designations: designationsRes.data || [],
+        attendance: attendanceRes.data || [],
+        leaves: {
+          types: leaveTypesRes.data || [],
+          policies: leavePoliciesRes.data || [],
+          balances: leaveBalancesRes.data || [],
+          requests: leaveRequestsRes.data || []
+        },
+        payroll: {
+          structures: salaryStructuresRes.data || [],
+          components: salaryComponentsRes.data || [],
+          runs: payrollRunsRes.data || [],
+          payslips: payslipsRes.data || []
+        },
+        workReports: workReportsRes.data || [],
+        projects: projectsRes.data || [],
+        roles: rolesRes.data || [],
+        members: membersRes.data || []
+      }
+    };
+
+    // 3. Delete the company and cascade tables
+    await supabase.from('companies').delete().eq('id', companyId);
+
+    return fullBackup;
   }
 };
