@@ -14,7 +14,8 @@ import {
   CreditCard,
   X,
   ShieldCheck,
-  CheckSquare
+  CheckSquare,
+  MessageSquare
 } from 'lucide-react';
 import { useTenant } from '../../lib/auth/TenantProvider';
 
@@ -31,6 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose = () =
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, visible: true },
+    { name: 'Team Chat', href: '/dashboard/chat', icon: MessageSquare, visible: true },
     { name: 'Attendance', href: '/dashboard/attendance', icon: Clock, visible: true },
     { name: 'Leaves', href: '/dashboard/leave', icon: Calendar, visible: true },
     { name: 'Leave Approvals', href: '/dashboard/leave/approvals', icon: Calendar, visible: isManager },

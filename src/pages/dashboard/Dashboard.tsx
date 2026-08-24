@@ -27,6 +27,7 @@ import { NotificationBell } from '../../features/notifications/NotificationBell'
 import { ReportsDashboard } from '../../features/reports/ReportsDashboard';
 import { BillingDashboard } from '../../features/billing/BillingDashboard';
 import { DashboardOverview } from './DashboardOverview';
+import { ChatPage } from '../../features/chat/ChatPage';
 
 export const Dashboard: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -99,6 +100,7 @@ export const Dashboard: React.FC = () => {
             <GlobalErrorBoundary>
               <Routes>
                 <Route path="/" element={<DashboardOverview />} />
+                <Route path="/chat" element={<ChatPage />} />
                 <Route path="/attendance" element={<DailyRoster />} />
                 
                 {/* Employee Management */}

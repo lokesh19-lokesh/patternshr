@@ -75,7 +75,9 @@ export const NotificationBell: React.FC = () => {
     setIsOpen(false);
 
     // Route depending on notification type
-    if (notification.type === 'report_reply' || notification.type === 'report_submitted') {
+    if (notification.type === 'chat_message' || notification.type === 'announcement') {
+      navigate('/dashboard/chat');
+    } else if (notification.type === 'report_reply' || notification.type === 'report_submitted') {
       navigate('/dashboard/work/reviews');
     } else if (notification.type === 'report_feedback' || notification.type === 'report_status') {
       navigate('/dashboard/work');
