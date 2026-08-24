@@ -344,21 +344,70 @@ export const leaveService = {
   async getMyLeaveRequests(employeeId: string): Promise<LeaveRequest[]> {
     const { data, error } = await supabase
       .from('leave_requests')
-      .select('*, leave_types(id, name)')
+      .select('*, leave_types:leave_types!leave_type_id(id, name)')
       .eq('employee_id', employeeId)
       .order('created_at', { ascending: false });
-    if (error) throw error;
+
+    if (error) {
+      const { data: raw } = await supabase
+        .from('leave_requests')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('created_at', { ascending: false });
+
+      if (!raw || raw.length === 0) return [];
+
+      const typeIds = Array.from(new Set(raw.map((r) => r.leave_type_id).filter(Boolean)));
+      const { data: types } = await supabase.from('leave_types').select('id, name').in('id', typeIds);
+      const typeMap = new Map((types || []).map((t) => [t.id, t]));
+
+      return raw.map((r) => ({
+        ...r,
+        leave_types: typeMap.get(r.leave_type_id)
+      })) as unknown as LeaveRequest[];
+    }
+
     return (data as unknown) as LeaveRequest[];
   },
 
   async getAllPendingRequests(companyId: string): Promise<LeaveRequest[]> {
     const { data, error } = await supabase
       .from('leave_requests')
-      .select('*, employee:employees(id, first_name, last_name, employee_id), leave_types(id, name)')
+      .select('*, employee:employees!employee_id(id, first_name, last_name, employee_id), leave_types:leave_types!leave_type_id(id, name)')
       .eq('company_id', companyId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
-    if (error) throw error;
+
+    if (error) {
+      console.warn('PostgREST join failed, falling back to manual enrichment', error);
+      // Direct robust query without ambiguity
+      const { data: rawRequests, error: rawError } = await supabase
+        .from('leave_requests')
+        .select('*')
+        .eq('company_id', companyId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (rawError || !rawRequests) return [];
+
+      const empIds = Array.from(new Set(rawRequests.map((r) => r.employee_id).filter(Boolean)));
+      const typeIds = Array.from(new Set(rawRequests.map((r) => r.leave_type_id).filter(Boolean)));
+
+      const [empsRes, typesRes] = await Promise.all([
+        empIds.length > 0 ? supabase.from('employees').select('id, first_name, last_name, employee_id').in('id', empIds) : { data: [] },
+        typeIds.length > 0 ? supabase.from('leave_types').select('id, name').in('id', typeIds) : { data: [] }
+      ]);
+
+      const empMap = new Map((empsRes.data || []).map((e) => [e.id, e]));
+      const typeMap = new Map((typesRes.data || []).map((t) => [t.id, t]));
+
+      return rawRequests.map((r) => ({
+        ...r,
+        employee: empMap.get(r.employee_id),
+        leave_types: typeMap.get(r.leave_type_id)
+      })) as unknown as LeaveRequest[];
+    }
+
     return (data as unknown) as LeaveRequest[];
   },
 
