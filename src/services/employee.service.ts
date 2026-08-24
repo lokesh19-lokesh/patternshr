@@ -266,17 +266,56 @@ export const employeeService = {
     return data as Employee | null;
   },
 
-  async sendInvite(email: string): Promise<void> {
-    const { data, error } = await supabase.functions.invoke('invite-employee', {
-      body: { email }
-    });
-    
-    // Check for edge function HTTP errors
+  async deleteEmployee(companyId: string, id: string): Promise<void> {
+    // 1. Fetch employee profile_id first to clean up company_members
+    const { data: emp } = await supabase
+      .from('employees')
+      .select('profile_id')
+      .eq('company_id', companyId)
+      .eq('id', id)
+      .maybeSingle();
+
+    if (emp?.profile_id) {
+      await supabase
+        .from('company_members')
+        .delete()
+        .eq('company_id', companyId)
+        .eq('user_id', emp.profile_id);
+    }
+
+    // 2. Cascade delete employee record from table
+    const { error } = await supabase
+      .from('employees')
+      .delete()
+      .eq('company_id', companyId)
+      .eq('id', id);
+
     if (error) throw error;
-    
-    // Check for our custom error payload returned as 200 OK
-    if (data && data.error) {
-      throw new Error(data.error);
+  },
+
+  async sendInvite(email: string): Promise<void> {
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-employee', {
+        body: { email }
+      });
+      if (!error && !(data && data.error)) {
+        return;
+      }
+    } catch (e) {
+      console.warn('Edge function invite fallback to OTP invite:', e);
+    }
+
+    // Fallback: Dispatch invitation link using Supabase Auth
+    const { error: otpErr } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: window.location.origin + '/dashboard'
+      }
+    });
+
+    if (otpErr) {
+      throw new Error(otpErr.message || 'Failed to send invitation.');
     }
   },
 
