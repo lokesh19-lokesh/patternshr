@@ -208,6 +208,24 @@ export const employeeService = {
     
     if (error) throw error;
 
+    // If profile exists, ensure user is registered in company_members with 'Employee' role
+    if (profileId) {
+      const { data: empRole } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('company_id', companyId)
+        .ilike('name', 'employee')
+        .maybeSingle();
+
+      if (empRole?.id) {
+        await supabase.from('company_members').upsert({
+          company_id: companyId,
+          user_id: profileId,
+          role_id: empRole.id
+        }, { onConflict: 'company_id, user_id' });
+      }
+    }
+
     // 4. Send an invitation email via Edge Function
     if (data.email && !profileId) {
       try {
