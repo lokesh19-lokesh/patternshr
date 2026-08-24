@@ -371,22 +371,33 @@ export const leaveService = {
   },
 
   async getAllPendingRequests(companyId: string): Promise<LeaveRequest[]> {
-    const { data, error } = await supabase
+    return this.getAllCompanyLeaveRequests(companyId, 'pending');
+  },
+
+  async getAllCompanyLeaveRequests(companyId: string, status?: string): Promise<LeaveRequest[]> {
+    let query = supabase
       .from('leave_requests')
       .select('*, employee:employees!employee_id(id, first_name, last_name, employee_id), leave_types:leave_types!leave_type_id(id, name)')
-      .eq('company_id', companyId)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false });
+      .eq('company_id', companyId);
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       console.warn('PostgREST join failed, falling back to manual enrichment', error);
-      // Direct robust query without ambiguity
-      const { data: rawRequests, error: rawError } = await supabase
+      let rawQuery = supabase
         .from('leave_requests')
         .select('*')
-        .eq('company_id', companyId)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+        .eq('company_id', companyId);
+
+      if (status && status !== 'all') {
+        rawQuery = rawQuery.eq('status', status);
+      }
+
+      const { data: rawRequests, error: rawError } = await rawQuery.order('created_at', { ascending: false });
 
       if (rawError || !rawRequests) return [];
 
