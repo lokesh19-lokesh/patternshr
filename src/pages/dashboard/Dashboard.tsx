@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { useTenant } from '../../lib/auth/TenantProvider';
 import { Sidebar } from '../../components/layout/Sidebar';
@@ -28,11 +28,25 @@ import { ReportsDashboard } from '../../features/reports/ReportsDashboard';
 import { BillingDashboard } from '../../features/billing/BillingDashboard';
 import { DashboardOverview } from './DashboardOverview';
 import { ChatPage } from '../../features/chat/ChatPage';
+import { VideoMeetingsDashboard } from '../../features/meetings/VideoMeetingsDashboard';
+import { MeetingRoomPage } from '../../features/meetings/room/MeetingRoomPage';
 
 export const Dashboard: React.FC = () => {
   const { user, signOut } = useAuth();
   const { company, role } = useTenant();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // If in active meeting room, render full-screen immersive video layout
+  if (location.pathname.includes('/meetings/room/')) {
+    return (
+      <GlobalErrorBoundary>
+        <Routes>
+          <Route path="/meetings/room/:meetingCode" element={<MeetingRoomPage />} />
+        </Routes>
+      </GlobalErrorBoundary>
+    );
+  }
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50">
@@ -101,6 +115,8 @@ export const Dashboard: React.FC = () => {
               <Routes>
                 <Route path="/" element={<DashboardOverview />} />
                 <Route path="/chat" element={<ChatPage />} />
+                <Route path="/meetings" element={<VideoMeetingsDashboard />} />
+                <Route path="/meetings/room/:meetingCode" element={<MeetingRoomPage />} />
                 <Route path="/attendance" element={<DailyRoster />} />
                 
                 {/* Employee Management */}
