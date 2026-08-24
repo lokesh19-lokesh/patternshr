@@ -75,9 +75,47 @@ export const tenantService = {
     };
   },
 
+  async checkWorkspaceNameExists(name: string): Promise<boolean> {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    const { data, error } = await supabase
+      .from('companies')
+      .select('id')
+      .ilike('name', trimmed)
+      .limit(1);
+    if (error) return false;
+    return !!(data && data.length > 0);
+  },
+
   async createCompanyWithAdmin(name: string): Promise<string> {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      throw new Error('Workspace name must be at least 2 characters.');
+    }
+
+    // 1. Check if the current user already belongs to any workspace
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: existingMember } = await supabase
+        .from('company_members')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingMember) {
+        throw new Error('Your account is already associated with an existing workspace.');
+      }
+    }
+
+    // 2. Check if a workspace with this name already exists
+    const exists = await this.checkWorkspaceNameExists(trimmed);
+    if (exists) {
+      throw new Error(`A workspace named "${trimmed}" already exists. Please choose a different name or ask your administrator to send you an invitation.`);
+    }
+
     const { data, error } = await supabase.rpc('create_company_with_admin', {
-      new_company_name: name
+      new_company_name: trimmed
     });
 
     if (error) {
