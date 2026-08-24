@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: 200, // Return 200 so the client SDK can read the JSON error
     })
   }
 })

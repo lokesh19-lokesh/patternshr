@@ -249,9 +249,16 @@ export const employeeService = {
   },
 
   async sendInvite(email: string): Promise<void> {
-    const { error } = await supabase.functions.invoke('invite-employee', {
+    const { data, error } = await supabase.functions.invoke('invite-employee', {
       body: { email }
     });
+    
+    // Check for edge function HTTP errors
     if (error) throw error;
+    
+    // Check for our custom error payload returned as 200 OK
+    if (data && data.error) {
+      throw new Error(data.error);
+    }
   }
 };
