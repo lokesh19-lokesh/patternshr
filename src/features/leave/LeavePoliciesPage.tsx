@@ -35,10 +35,10 @@ export const LeavePoliciesPage: React.FC = () => {
 
   const carryForward = watch('carry_forward');
 
-  const loadData = async () => {
+  const loadData = async (isBackground = false) => {
     if (!company) return;
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const [fetchedTypes, fetchedPolicies] = await Promise.all([
         leaveService.getLeaveTypes(company.id),
         leaveService.getLeavePolicies(company.id)
@@ -48,12 +48,22 @@ export const LeavePoliciesPage: React.FC = () => {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
+
+    if (!company) return;
+
+    const unsubscribe = leaveService.subscribeToLeaveUpdates(company.id, () => {
+      loadData(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [company]);
 
   const onSubmit = async (data: LeavePolicyForm) => {

@@ -501,7 +501,11 @@ export const leaveService = {
 
   // Realtime Subscriptions
   subscribeToLeaveRequests(companyId: string, callback: () => void) {
-    const channelId = `leave_requests_company_${companyId}_${Math.random().toString(36).substring(2, 9)}`;
+    return this.subscribeToLeaveUpdates(companyId, callback);
+  },
+
+  subscribeToLeaveUpdates(companyId: string, callback: () => void) {
+    const channelId = `leaves_realtime_${companyId}_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
       .channel(channelId)
       .on(
@@ -510,6 +514,30 @@ export const leaveService = {
           event: '*',
           schema: 'public',
           table: 'leave_requests',
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          callback();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leave_balances',
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          callback();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leave_policies',
           filter: `company_id=eq.${companyId}`,
         },
         () => {

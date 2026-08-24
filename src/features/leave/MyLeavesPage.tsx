@@ -59,10 +59,10 @@ export const MyLeavesPage: React.FC = () => {
 
   const currentYear = new Date().getFullYear();
 
-  const loadData = async () => {
+  const loadData = async (isBackground = false) => {
     if (!company || !user) return;
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const emp = await employeeService.getCurrentEmployee(company.id, user.id);
       setEmployee(emp);
 
@@ -79,12 +79,22 @@ export const MyLeavesPage: React.FC = () => {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
+
+    if (!company) return;
+
+    const unsubscribe = leaveService.subscribeToLeaveUpdates(company.id, () => {
+      loadData(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [company, user]);
 
   const handleSaveQuota = async (balanceId: string) => {
