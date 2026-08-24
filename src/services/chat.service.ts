@@ -49,7 +49,7 @@ export interface ChatMessage {
     last_name?: string;
     employee_id?: string;
     department?: { name: string };
-    designation?: { title: string };
+    designation?: { name?: string; title?: string };
   };
   reactions?: ChatReaction[];
 }
@@ -61,17 +61,7 @@ export interface ConversationMember {
   role: 'admin' | 'moderator' | 'member';
   is_pinned: boolean;
   last_read_at: string;
-  employee?: {
-    id: string;
-    first_name: string;
-    last_name?: string;
-    email: string;
-    phone?: string;
-    hire_date?: string;
-    department?: { name: string };
-    designation?: { title: string };
-    manager?: { first_name: string; last_name?: string };
-  };
+  employee?: any;
 }
 
 export interface Conversation {
@@ -88,7 +78,7 @@ export interface Conversation {
   created_at: string;
   members?: ConversationMember[];
   unread_count?: number;
-  other_member?: ConversationMember['employee']; // For direct 1-to-1 chats
+  other_member?: any;
 }
 
 export const chatService = {
@@ -108,33 +98,78 @@ export const chatService = {
       const convIds = memberRows.map((m: any) => m.conversation_id);
       const memberMetaMap = new Map(memberRows.map((m: any) => [m.conversation_id, m]));
 
-      // Fetch conversations with all members and details
+      // Fetch base conversations
       const { data: convs, error: convErr } = await supabase
         .from('conversations')
-        .select(`
-          *,
-          members:conversation_members(
-            id, conversation_id, employee_id, role, is_pinned, last_read_at,
-            employee:employees(id, first_name, last_name, email, phone, hire_date, department:departments(name), designation:designations(title))
-          )
-        `)
+        .select('*')
         .in('id', convIds)
         .order('last_message_at', { ascending: false });
 
       if (convErr || !convs) return [];
 
-      // Calculate unread counts and set other member for direct chats
+      // Fetch all members across these conversations
+      const { data: allMembers } = await supabase
+        .from('conversation_members')
+        .select('id, conversation_id, employee_id, role, is_pinned, last_read_at')
+        .in('conversation_id', convIds);
+
+      // Fetch employee profiles for all members
+      const memberEmpIds = Array.from(new Set((allMembers || []).map((m: any) => m.employee_id)));
+      let employees: any[] = [];
+      if (memberEmpIds.length > 0) {
+        const { data: empData, error: empErr } = await supabase
+          .from('employees')
+          .select(`
+            id, first_name, last_name, email, phone, status,
+            department:departments!employees_department_id_fkey(name),
+            designation:designations(name)
+          `)
+          .in('id', memberEmpIds);
+
+        if (!empErr && empData) {
+          employees = empData;
+        } else {
+          // Fallback plain query without joins
+          const { data: rawEmps } = await supabase
+            .from('employees')
+            .select('id, first_name, last_name, email, phone, status')
+            .in('id', memberEmpIds);
+          employees = rawEmps || [];
+        }
+      }
+
+      const empMap = new Map((employees || []).map((e: any) => [e.id, e]));
+
+      // Group members by conversation ID
+      const membersByConv = new Map<string, any[]>();
+      (allMembers || []).forEach((m: any) => {
+        const emp = empMap.get(m.employee_id);
+        const enrichedMember = { ...m, employee: emp };
+        const list = membersByConv.get(m.conversation_id) || [];
+        list.push(enrichedMember);
+        membersByConv.set(m.conversation_id, list);
+      });
+
+      // Assemble enriched conversations
       return convs.map((conv: any) => {
         const myMeta = memberMetaMap.get(conv.id);
-        const other = conv.type === 'direct'
-          ? (conv.members || []).find((m: any) => m.employee_id !== currentEmployeeId)?.employee
+        const membersList = membersByConv.get(conv.id) || [];
+        const otherMember = conv.type === 'direct'
+          ? membersList.find((m: any) => m.employee_id !== currentEmployeeId)?.employee ||
+            membersList.find((m: any) => m.employee_id === currentEmployeeId)?.employee
           : undefined;
+
+        const resolvedTitle = conv.type === 'direct'
+          ? (otherMember ? `${otherMember.first_name} ${otherMember.last_name || ''}`.trim() : conv.title)
+          : conv.title;
 
         return {
           ...conv,
+          title: resolvedTitle || conv.title,
           is_pinned: myMeta?.is_pinned || false,
-          other_member: other,
-          unread_count: 0, // Computed or live updated
+          members: membersList,
+          other_member: otherMember,
+          unread_count: 0,
         } as Conversation;
       });
     } catch (e) {
@@ -145,6 +180,15 @@ export const chatService = {
 
   // 2. Get or Create 1-on-1 Direct Conversation
   async getOrCreateDirectConversation(companyId: string, currentEmpId: string, targetEmpId: string): Promise<Conversation> {
+    // Fetch target employee details first
+    const { data: targetEmp } = await supabase
+      .from('employees')
+      .select('id, first_name, last_name, email, phone, hire_date, department:departments(name), designation:designations(name)')
+      .eq('id', targetEmpId)
+      .single();
+
+    const targetName = `${targetEmp?.first_name || ''} ${targetEmp?.last_name || ''}`.trim();
+
     // Check if direct conversation already exists between both employees
     const { data: myMemberships } = await supabase
       .from('conversation_members')
@@ -164,31 +208,29 @@ export const chatService = {
         for (const shared of sharedMemberships) {
           const { data: conv } = await supabase
             .from('conversations')
-            .select(`
-              *,
-              members:conversation_members(
-                id, conversation_id, employee_id, role, is_pinned, last_read_at,
-                employee:employees(id, first_name, last_name, email, phone, hire_date, department:departments(name), designation:designations(title))
-              )
-            `)
+            .select('*')
             .eq('id', shared.conversation_id)
             .eq('type', 'direct')
             .maybeSingle();
 
           if (conv) {
-            const other = (conv.members || []).find((m: any) => m.employee_id !== currentEmpId)?.employee;
-            return { ...conv, other_member: other } as Conversation;
+            return {
+              ...conv,
+              title: conv.title || targetName,
+              other_member: targetEmp,
+            } as Conversation;
           }
         }
       }
     }
 
-    // Create new direct conversation
+    // Create new direct conversation with title
     const { data: newConv, error: createErr } = await supabase
       .from('conversations')
       .insert({
         company_id: companyId,
         type: 'direct',
+        title: targetName || 'Direct Message',
         created_by: currentEmpId,
         last_message_at: new Date().toISOString(),
       })
@@ -202,13 +244,6 @@ export const chatService = {
       { conversation_id: newConv.id, company_id: companyId, employee_id: currentEmpId, role: 'admin' },
       { conversation_id: newConv.id, company_id: companyId, employee_id: targetEmpId, role: 'member' },
     ]);
-
-    // Fetch target employee details
-    const { data: targetEmp } = await supabase
-      .from('employees')
-      .select('id, first_name, last_name, email, phone, hire_date, department:departments(name), designation:designations(title)')
-      .eq('id', targetEmpId)
-      .single();
 
     return {
       ...newConv,
@@ -264,11 +299,7 @@ export const chatService = {
         .from('chat_messages')
         .select(`
           *,
-          sender:employees(id, first_name, last_name, employee_id, department:departments(name), designation:designations(title)),
-          parent_message:chat_messages!parent_message_id(
-            id, sender_id, message_text,
-            sender:employees(first_name, last_name)
-          ),
+          sender:employees(id, first_name, last_name, employee_id, department:departments(name), designation:designations(name)),
           reactions:message_reactions(
             id, message_id, employee_id, emoji,
             employee:employees(first_name, last_name)
@@ -326,20 +357,31 @@ export const chatService = {
       updated_at: new Date().toISOString(),
     };
 
+    let insertedMessage: any = null;
+
+    // Try insert with relations
     const { data, error } = await supabase
       .from('chat_messages')
       .insert(record)
       .select(`
         *,
-        sender:employees(id, first_name, last_name, employee_id, department:departments(name), designation:designations(title)),
-        parent_message:chat_messages!parent_message_id(
-          id, sender_id, message_text,
-          sender:employees(first_name, last_name)
-        )
+        sender:employees(id, first_name, last_name, employee_id, department:departments(name), designation:designations(name))
       `)
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
+    if (error || !data) {
+      // Fallback simple insert
+      const { data: fallbackData, error: fallbackErr } = await supabase
+        .from('chat_messages')
+        .insert(record)
+        .select('*')
+        .single();
+
+      if (fallbackErr) throw fallbackErr;
+      insertedMessage = fallbackData;
+    } else {
+      insertedMessage = data;
+    }
 
     // Update conversation last_message_at and preview
     await supabase
@@ -352,12 +394,12 @@ export const chatService = {
       .eq('id', payload.conversation_id);
 
     // Instant Realtime Broadcast to the conversation room
-    this.broadcastMessage(payload.conversation_id, data);
+    this.broadcastMessage(payload.conversation_id, insertedMessage);
 
     // Trigger Notification to members or mentions
     this.dispatchMessageNotifications(payload.company_id, payload.conversation_id, payload.sender_id, payload.message_text, payload.mentions);
 
-    return data as ChatMessage;
+    return insertedMessage as ChatMessage;
   },
 
   // 6. Edit Message

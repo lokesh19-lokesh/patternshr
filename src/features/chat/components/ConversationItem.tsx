@@ -19,11 +19,17 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
   const isDirect = conversation.type === 'direct';
   const isAnnouncement = conversation.type === 'announcement';
   
+  const otherMemberName = conversation.other_member
+    ? `${conversation.other_member.first_name} ${conversation.other_member.last_name || ''}`.trim()
+    : (conversation.members && conversation.members[0]?.employee)
+    ? `${conversation.members[0].employee.first_name} ${conversation.members[0].employee.last_name || ''}`.trim()
+    : null;
+
   const title = isDirect
-    ? `${conversation.other_member?.first_name || 'Direct'} ${conversation.other_member?.last_name || ''}`.trim()
+    ? (otherMemberName || (conversation.title && conversation.title !== 'Direct' && conversation.title !== 'Direct Message' ? conversation.title : null) || 'Team Member')
     : conversation.title || 'Channel';
 
-  const subtitle = conversation.last_message_preview || (isDirect ? (conversation.other_member?.designation?.title || (conversation.other_member?.designation as any)?.name) : conversation.description) || 'No messages yet';
+  const subtitle = conversation.last_message_preview || (isDirect ? (conversation.other_member?.designation?.name || (conversation.other_member?.designation as any)?.title) : conversation.description) || 'No messages yet';
 
   const getPresenceColor = (status: UserPresenceStatus) => {
     switch (status) {

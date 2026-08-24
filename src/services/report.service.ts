@@ -14,7 +14,7 @@ export const reportService = {
         status,
         joining_date,
         department:departments(name),
-        designation:designations(title)
+        designation:designations(name)
       `)
       .eq('company_id', companyId)
       .order('employee_id');
@@ -27,7 +27,7 @@ export const reportService = {
       'Email': emp.email,
       'Phone': emp.phone || 'N/A',
       'Department': (emp.department as any)?.name || 'N/A',
-      'Designation': (emp.designation as any)?.title || 'N/A',
+      'Designation': (emp.designation as any)?.name || (emp.designation as any)?.title || 'N/A',
       'Status': emp.status,
       'Joining Date': emp.joining_date
     }));

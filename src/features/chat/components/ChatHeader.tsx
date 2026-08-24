@@ -30,12 +30,21 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 }) => {
   const isDirect = conversation.type === 'direct';
 
+  const otherMemberName = conversation.other_member
+    ? `${conversation.other_member.first_name} ${conversation.other_member.last_name || ''}`.trim()
+    : (conversation.members && conversation.members[0]?.employee)
+    ? `${conversation.members[0].employee.first_name} ${conversation.members[0].employee.last_name || ''}`.trim()
+    : null;
+
   const title = isDirect
-    ? `${conversation.other_member?.first_name || 'Direct'} ${conversation.other_member?.last_name || ''}`.trim()
+    ? (otherMemberName || (conversation.title && conversation.title !== 'Direct' && conversation.title !== 'Direct Message' ? conversation.title : null) || 'Team Member')
     : conversation.title || 'Channel';
 
+  const designationName = conversation.other_member?.designation?.name || (conversation.other_member?.designation as any)?.title || 'Team Member';
+  const deptName = conversation.other_member?.department?.name || 'Staff';
+
   const subtitle = isDirect
-    ? `${conversation.other_member?.designation?.title || ''} • ${conversation.other_member?.department?.name || 'Department'}`
+    ? `${designationName} • ${deptName}`
     : `${conversation.members?.length || 0} members • ${conversation.description || 'Team channel'}`;
 
   const getPresenceText = (status: UserPresenceStatus) => {

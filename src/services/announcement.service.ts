@@ -154,7 +154,7 @@ export const announcementService = {
     try {
       const { data, error } = await supabase
         .from('announcement_reads')
-        .select('*, employee:employees(id, first_name, last_name, email, department:departments(name), designation:designations(title))')
+        .select('*, employee:employees(id, first_name, last_name, email, department:departments(name), designation:designations(name))')
         .eq('announcement_id', announcementId)
         .order('read_at', { ascending: false });
 

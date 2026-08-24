@@ -55,6 +55,24 @@ export const ChatPage: React.FC = () => {
   // HR Quick Action Modal State
   const [quickActionType, setQuickActionType] = useState<'profile' | 'attendance' | 'leave' | 'payroll' | null>(null);
 
+  // Helper to enrich conversations with employee directory
+  const enrichConversations = (list: Conversation[], employeeList: Employee[], currentEmpId: string): Conversation[] => {
+    const empMap = new Map(employeeList.map((e) => [e.id, e]));
+    return list.map((c) => {
+      if (c.type === 'direct') {
+        const otherMem = (c.members || []).find((m) => m.employee_id !== currentEmpId);
+        const otherEmp = (otherMem?.employee_id ? empMap.get(otherMem.employee_id) : null) || c.other_member || (c.members?.[0]?.employee_id ? empMap.get(c.members[0].employee_id) : null);
+        const resolvedName = otherEmp ? `${otherEmp.first_name} ${otherEmp.last_name || ''}`.trim() : c.title;
+        return {
+          ...c,
+          title: (resolvedName && resolvedName !== 'Direct' && resolvedName !== 'Direct Message' && resolvedName !== 'Team Member' ? resolvedName : null) || (otherEmp ? `${otherEmp.first_name} ${otherEmp.last_name || ''}`.trim() : c.title) || 'Team Member',
+          other_member: otherEmp || c.other_member,
+        };
+      }
+      return c;
+    });
+  };
+
   // Load Initial Data
   const loadInitialData = async () => {
     if (!company || !user) return;
@@ -66,14 +84,35 @@ export const ChatPage: React.FC = () => {
       ]);
 
       setCurrentEmployee(emp);
-      setAllEmployees(employees || []);
+      const empList = employees || [];
+      setAllEmployees(empList);
 
       if (emp) {
         // Set presence in DB
         await presenceService.setPresence(company.id, emp.id, 'online');
 
         // Fetch conversations
-        const convList = await chatService.getConversations(company.id, emp.id);
+        let convList = await chatService.getConversations(company.id, emp.id);
+
+        // If no conversations exist in company yet, auto-create a General channel with all employees
+        if (convList.length === 0 && empList.length > 0) {
+          try {
+            const allEmpIds = empList.map((e) => e.id);
+            const defaultGeneral = await chatService.createGroupConversation(
+              company.id,
+              emp.id,
+              'General',
+              'Company-wide general discussions and team communication',
+              allEmpIds
+            );
+            convList = [defaultGeneral];
+          } catch (e) {
+            console.warn('Auto create general channel', e);
+          }
+        }
+
+        // Enrich conversations with full employee profiles
+        convList = enrichConversations(convList, empList, emp.id);
         setConversations(convList);
 
         if (convList.length > 0 && !selectedConversation && !isAnnouncementView) {
@@ -140,7 +179,8 @@ export const ChatPage: React.FC = () => {
     if (!company || !currentEmployee) return;
 
     const unsubAll = chatService.subscribeToAllChats(company.id, async () => {
-      const convList = await chatService.getConversations(company.id, currentEmployee.id);
+      let convList = await chatService.getConversations(company.id, currentEmployee.id);
+      convList = enrichConversations(convList, allEmployees, currentEmployee.id);
       setConversations(convList);
     });
 
@@ -156,7 +196,7 @@ export const ChatPage: React.FC = () => {
       unsubAll();
       unsubPresence();
     };
-  }, [company, currentEmployee]);
+  }, [company, currentEmployee, allEmployees]);
 
   // Handlers
   const handleSelectConversation = (conv: Conversation) => {
@@ -175,9 +215,11 @@ export const ChatPage: React.FC = () => {
     if (!company || !currentEmployee) return;
     try {
       const conv = await chatService.getOrCreateDirectConversation(company.id, currentEmployee.id, targetEmpId);
-      const convList = await chatService.getConversations(company.id, currentEmployee.id);
+      let convList = await chatService.getConversations(company.id, currentEmployee.id);
+      convList = enrichConversations(convList, allEmployees, currentEmployee.id);
       setConversations(convList);
-      handleSelectConversation(conv);
+      const targetSelected = convList.find((c) => c.id === conv.id) || conv;
+      handleSelectConversation(targetSelected);
     } catch (e) {
       alert('Failed to start chat');
     }

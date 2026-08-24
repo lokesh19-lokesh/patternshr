@@ -53,7 +53,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   // Filter conversations
   const filteredConvs = conversations.filter((c) => {
     const title = c.type === 'direct'
-      ? `${c.other_member?.first_name || ''} ${c.other_member?.last_name || ''}`
+      ? `${c.other_member?.first_name || ''} ${c.other_member?.last_name || ''}`.trim() || c.title || 'Direct'
       : c.title || '';
     return title.toLowerCase().includes(searchQuery.toLowerCase());
   });
