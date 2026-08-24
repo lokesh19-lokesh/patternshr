@@ -58,7 +58,7 @@ export const ChatPage: React.FC = () => {
   // Helper to enrich conversations with employee directory
   const enrichConversations = (list: Conversation[], employeeList: Employee[], currentEmpId: string): Conversation[] => {
     const empMap = new Map(employeeList.map((e) => [e.id, e]));
-    return list.map((c) => {
+    const mapped = list.map((c) => {
       if (c.type === 'direct') {
         const otherMem = (c.members || []).find((m) => m.employee_id !== currentEmpId);
         const otherEmp = (otherMem?.employee_id ? empMap.get(otherMem.employee_id) : null) || c.other_member || (c.members?.[0]?.employee_id ? empMap.get(c.members[0].employee_id) : null);
@@ -71,6 +71,24 @@ export const ChatPage: React.FC = () => {
       }
       return c;
     });
+
+    // Deduplicate direct conversations by other employee ID so each person appears once
+    const seenDirect = new Set<string>();
+    const deduplicated: Conversation[] = [];
+
+    for (const c of mapped) {
+      if (c.type === 'direct') {
+        const key = c.other_member?.id || c.title || c.id;
+        if (!seenDirect.has(key)) {
+          seenDirect.add(key);
+          deduplicated.push(c);
+        }
+      } else {
+        deduplicated.push(c);
+      }
+    }
+
+    return deduplicated;
   };
 
   // Load Initial Data

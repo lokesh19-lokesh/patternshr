@@ -151,7 +151,7 @@ export const chatService = {
       });
 
       // Assemble enriched conversations
-      return convs.map((conv: any) => {
+      const enriched = convs.map((conv: any) => {
         const myMeta = memberMetaMap.get(conv.id);
         const membersList = membersByConv.get(conv.id) || [];
         const otherMember = conv.type === 'direct'
@@ -172,6 +172,24 @@ export const chatService = {
           unread_count: 0,
         } as Conversation;
       });
+
+      // Deduplicate direct conversations by other_member.id (keep the most recent one)
+      const seenDirectEmployees = new Set<string>();
+      const result: Conversation[] = [];
+
+      for (const c of enriched) {
+        if (c.type === 'direct') {
+          const otherId = c.other_member?.id || c.title || c.id;
+          if (!seenDirectEmployees.has(otherId)) {
+            seenDirectEmployees.add(otherId);
+            result.push(c);
+          }
+        } else {
+          result.push(c);
+        }
+      }
+
+      return result;
     } catch (e) {
       console.error('Error fetching conversations', e);
       return [];
@@ -211,12 +229,14 @@ export const chatService = {
             .select('*')
             .eq('id', shared.conversation_id)
             .eq('type', 'direct')
+            .order('last_message_at', { ascending: false })
+            .limit(1)
             .maybeSingle();
 
           if (conv) {
             return {
               ...conv,
-              title: conv.title || targetName,
+              title: targetName || conv.title,
               other_member: targetEmp,
             } as Conversation;
           }
