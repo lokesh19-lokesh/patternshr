@@ -7,9 +7,9 @@ import { useTenant } from '../../lib/auth/TenantProvider';
 import { employeeService } from '../../services/employee.service';
 import type { Employee } from '../../services/employee.service';
 import { workService } from '../../services/work.service';
-import type { Project, WorkReport } from '../../services/work.service';
+import type { Project, WorkReport, WorkReportComment } from '../../services/work.service';
 import { Link } from 'react-router-dom';
-import { AlertCircle, UploadCloud, FileText, Paperclip, X, ExternalLink, CheckSquare } from 'lucide-react';
+import { AlertCircle, UploadCloud, FileText, Paperclip, X, ExternalLink, CheckSquare, MessageSquare, Send } from 'lucide-react';
 
 const reportSchema = z.object({
   project_name: z.string().min(1, 'Please enter a project or task name'),
@@ -35,6 +35,12 @@ export const MyReportsPage: React.FC = () => {
   // Document attachment state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+
+  // Report details & feedback modal state
+  const [selectedReport, setSelectedReport] = useState<WorkReport | null>(null);
+  const [comments, setComments] = useState<WorkReportComment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ReportForm>({
     resolver: zodResolver(reportSchema) as any,
@@ -72,12 +78,53 @@ export const MyReportsPage: React.FC = () => {
     if (!company) return;
     const unsubscribe = workService.subscribeToWorkReports(company.id, () => {
       loadData(true);
+      if (selectedReport) {
+        loadComments(selectedReport.id);
+      }
     });
 
     return () => {
       unsubscribe();
     };
-  }, [company, user]);
+  }, [company, user, selectedReport]);
+
+  const loadComments = async (reportId: string) => {
+    try {
+      const fetchedComments = await workService.getReportComments(reportId);
+      setComments(fetchedComments);
+    } catch (e) {
+      console.error('Error loading report comments', e);
+    }
+  };
+
+  const handleOpenReportModal = (report: WorkReport) => {
+    setSelectedReport(report);
+    loadComments(report.id);
+  };
+
+  const handleCloseReportModal = () => {
+    setSelectedReport(null);
+    setComments([]);
+    setNewComment('');
+  };
+
+  const handleSendComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!company || !selectedReport || !user || !newComment.trim()) return;
+
+    try {
+      setSubmittingComment(true);
+      const authorId = employee?.id || user.id;
+      const createdComment = await workService.addReportComment(company.id, selectedReport.id, authorId, newComment.trim());
+      setComments((prev) => [...prev, createdComment]);
+      setNewComment('');
+    } catch (err) {
+      console.error('Failed to post comment', err);
+      alert('Failed to send comment');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -299,6 +346,7 @@ export const MyReportsPage: React.FC = () => {
                     <th className="px-6 py-3.5 text-left text-xs font-bold text-text-grey uppercase tracking-wider">Description</th>
                     <th className="px-6 py-3.5 text-left text-xs font-bold text-text-grey uppercase tracking-wider">Document</th>
                     <th className="px-6 py-3.5 text-left text-xs font-bold text-text-grey uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3.5 text-right text-xs font-bold text-text-grey uppercase tracking-wider">Reviewer Feedback</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -341,12 +389,22 @@ export const MyReportsPage: React.FC = () => {
                               : 'bg-amber-50 text-amber-700 border border-amber-200'
                           }`}
                         >
-                          {report.status === 'pending'
+                          {report.status === 'pending' || report.status === 'submitted'
                             ? 'Pending Review'
                             : report.status === 'needs_revision'
                             ? 'Needs Revision'
                             : 'Approved'}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReportModal(report)}
+                          className="inline-flex items-center space-x-1 text-xs font-bold text-charcoal bg-white hover:bg-soft-green hover:text-dark-green px-3 py-1.5 rounded-xl border border-gray-200/80 shadow-xs transition-all cursor-pointer"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 text-primary-green" />
+                          <span>View Feedback</span>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -372,7 +430,7 @@ export const MyReportsPage: React.FC = () => {
                           : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}
                     >
-                      {report.status === 'pending'
+                      {report.status === 'pending' || report.status === 'submitted'
                         ? 'Pending'
                         : report.status === 'needs_revision'
                         ? 'Revision'
@@ -384,18 +442,28 @@ export const MyReportsPage: React.FC = () => {
                     {report.description}
                   </p>
 
-                  <div className="flex items-center justify-between pt-1 text-xs">
+                  <div className="flex items-center justify-between pt-1 text-xs gap-2 flex-wrap">
                     <span className="font-bold text-charcoal">{report.hours_worked} Hours Logged</span>
-                    {report.attachment_url && (
+                    <div className="flex items-center gap-1.5">
+                      {report.attachment_url && (
+                        <button
+                          type="button"
+                          onClick={() => workService.openDocument(report.attachment_url!, report.attachment_name || 'work-document')}
+                          className="inline-flex items-center space-x-1 font-bold text-primary-green bg-soft-green px-2 py-1 rounded-md cursor-pointer"
+                        >
+                          <Paperclip className="h-3 w-3" />
+                          <span>Doc</span>
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => workService.openDocument(report.attachment_url!, report.attachment_name || 'work-document')}
-                        className="inline-flex items-center space-x-1 font-bold text-primary-green bg-soft-green px-2 py-0.5 rounded-md cursor-pointer"
+                        onClick={() => handleOpenReportModal(report)}
+                        className="inline-flex items-center space-x-1 text-xs font-bold text-charcoal bg-white border border-gray-200 px-2.5 py-1 rounded-lg shadow-xs"
                       >
-                        <Paperclip className="h-3 w-3" />
-                        <span>Document</span>
+                        <MessageSquare className="h-3.5 w-3.5 text-primary-green" />
+                        <span>Feedback</span>
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -403,6 +471,122 @@ export const MyReportsPage: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Report Feedback & Details Modal for Employee */}
+      {selectedReport && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden border border-gray-100">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-gray-100 flex items-start justify-between bg-light-grey/40">
+              <div>
+                <h3 className="text-lg font-bold text-charcoal">{selectedReport.project?.name || 'Work Report Details'}</h3>
+                <p className="text-xs text-text-grey mt-0.5">
+                  {new Date(selectedReport.report_date).toLocaleDateString()} &bull; {selectedReport.hours_worked} hours
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseReportModal}
+                className="p-1.5 rounded-xl hover:bg-gray-100 text-text-grey hover:text-charcoal transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              {/* Status Banner */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-light-grey/80 border border-gray-200/60">
+                <span className="text-xs font-bold text-charcoal">Status</span>
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    selectedReport.status === 'approved'
+                      ? 'bg-soft-green text-dark-green border border-primary-green/30'
+                      : selectedReport.status === 'needs_revision'
+                      ? 'bg-red-50 text-red-700 border border-red-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  {selectedReport.status.charAt(0).toUpperCase() + selectedReport.status.slice(1)}
+                </span>
+              </div>
+
+              {/* Task Description */}
+              <div>
+                <h4 className="text-xs font-bold text-charcoal uppercase tracking-wider mb-1">My Submitted Task</h4>
+                <p className="text-xs sm:text-sm text-text-grey bg-light-grey/40 p-3 rounded-xl border border-gray-100 leading-relaxed whitespace-pre-wrap">
+                  {selectedReport.description}
+                </p>
+              </div>
+
+              {/* Attached Document */}
+              {selectedReport.attachment_url && (
+                <div>
+                  <h4 className="text-xs font-bold text-charcoal uppercase tracking-wider mb-1">Attached Work Document</h4>
+                  <button
+                    type="button"
+                    onClick={() => workService.openDocument(selectedReport.attachment_url!, selectedReport.attachment_name || 'work-document')}
+                    className="inline-flex items-center space-x-1.5 bg-soft-green text-dark-green border border-primary-green/30 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-primary-green hover:text-white transition-all"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                    <span>{selectedReport.attachment_name || 'View Attached File'}</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+
+              {/* Reviewer Comments Thread */}
+              <div className="pt-2 border-t border-gray-100">
+                <h4 className="text-xs font-bold text-charcoal uppercase tracking-wider mb-2 flex items-center space-x-1.5">
+                  <MessageSquare className="h-3.5 w-3.5 text-primary-green" />
+                  <span>Reviewer Feedback & Conversation</span>
+                </h4>
+
+                <div className="space-y-2.5 max-h-52 overflow-y-auto pr-1">
+                  {comments.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-text-grey italic bg-light-grey/30 rounded-xl">
+                      No reviewer feedback or comments on this report yet.
+                    </div>
+                  ) : (
+                    comments.map((c) => (
+                      <div key={c.id} className="bg-light-grey/80 p-3 rounded-xl border border-gray-100 text-xs space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-charcoal">
+                            {c.author ? `${c.author.first_name} ${c.author.last_name || ''}` : 'Reviewer / Admin'}
+                          </span>
+                          <span className="text-[10px] text-text-grey">
+                            {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-charcoal leading-relaxed">{c.comment_text}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer / Reply Box */}
+            <form onSubmit={handleSendComment} className="p-3.5 border-t border-gray-100 bg-light-grey/40 flex items-center gap-2">
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Reply to reviewer feedback..."
+                className="flex-1 rounded-xl border border-gray-300 px-3.5 py-2 text-xs sm:text-sm text-charcoal focus:border-primary-green focus:outline-none bg-white"
+              />
+              <button
+                type="submit"
+                disabled={submittingComment || !newComment.trim()}
+                className="bg-primary-green hover:bg-deep-green text-white p-2 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold inline-flex items-center space-x-1 disabled:opacity-50 transition-all shadow-xs"
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Reply</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
