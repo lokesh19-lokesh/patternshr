@@ -43,10 +43,16 @@ export const LandingHero: React.FC = () => {
     };
 
     const updateVideoFrame = () => {
-      if (videoRef.current && videoRef.current.duration && !videoRef.current.seeking) {
+      if (videoRef.current && videoRef.current.duration) {
         const diff = targetTime - currentTime;
-        currentTime += diff * 0.15; // Smooth lerp
-        if (Math.abs(videoRef.current.currentTime - currentTime) > 0.02) {
+        // Responsive lerp (0.35) for fast response + snap when within 0.005s
+        if (Math.abs(diff) < 0.005) {
+          currentTime = targetTime;
+        } else {
+          currentTime += diff * 0.35;
+        }
+
+        if (!videoRef.current.seeking && Math.abs(videoRef.current.currentTime - currentTime) > 0.01) {
           videoRef.current.currentTime = currentTime;
         }
       }
@@ -55,6 +61,7 @@ export const LandingHero: React.FC = () => {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', handleScroll);
+    handleScroll(); // Initial computation
     animFrameId = requestAnimationFrame(updateVideoFrame);
 
     return () => {
@@ -67,29 +74,29 @@ export const LandingHero: React.FC = () => {
   // Sequential Scene Opacities based on scroll progress p (0 -> 1)
   const p = scrollProgress;
 
-  // Scene 1: Hero Intro (p: 0 -> 0.28)
-  const s1Opacity = p < 0.20 ? 1 : Math.max(0, 1 - (p - 0.20) / 0.08);
+  // Scene 1: Hero Intro (p: 0 -> 0.25)
+  const s1Opacity = p < 0.18 ? 1 : Math.max(0, 1 - (p - 0.18) / 0.10);
 
-  // Scene 2: Core Philosophy & Modular Pillars (p: 0.32 -> 0.62)
+  // Scene 2: Core Philosophy & Modular Pillars (p: 0.30 -> 0.65)
   let s2Opacity = 0;
-  if (p >= 0.32 && p < 0.40) {
-    s2Opacity = (p - 0.32) / 0.08;
-  } else if (p >= 0.40 && p < 0.56) {
+  if (p >= 0.28 && p < 0.38) {
+    s2Opacity = (p - 0.28) / 0.10;
+  } else if (p >= 0.38 && p < 0.58) {
     s2Opacity = 1;
-  } else if (p >= 0.56 && p < 0.65) {
-    s2Opacity = Math.max(0, 1 - (p - 0.56) / 0.09);
+  } else if (p >= 0.58 && p < 0.68) {
+    s2Opacity = Math.max(0, 1 - (p - 0.58) / 0.10);
   }
 
-  // Scene 3: Interactive SaaS Showcase & CTA (p: 0.68 -> 1.0)
-  const s3Opacity = p < 0.68 ? 0 : Math.min(1, (p - 0.68) / 0.08);
+  // Scene 3: Interactive SaaS Showcase & CTA (p: 0.70 -> 1.0)
+  const s3Opacity = p < 0.70 ? 0 : Math.min(1, (p - 0.70) / 0.10);
 
   // Text theme flip: Dark Navy (#1D3045) on light cloud frames, White on darker mountain frames
-  const isLight = p > 0.55;
+  const isLight = p > 0.50;
   const textColor = isLight ? 'text-white' : 'text-[#1D3045]';
   const subtextColor = isLight ? 'text-slate-200' : 'text-[#1D3045]/85';
 
   return (
-    <div ref={containerRef} className="relative h-[320vh] bg-[#1D3045] w-full">
+    <div ref={containerRef} className="relative h-[210vh] bg-[#1D3045] w-full">
       {/* Sticky Fullscreen Video Canvas Window */}
       <div className="sticky top-0 w-full h-screen overflow-hidden flex items-center justify-center">
         {/* Background Scroll-Tied Video */}
