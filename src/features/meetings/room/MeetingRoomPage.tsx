@@ -50,6 +50,7 @@ export const MeetingRoomPage: React.FC = () => {
 
   // Media Streams & WebRTC Manager
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -326,6 +327,10 @@ export const MeetingRoomPage: React.FC = () => {
       onNotesUpdated: (syncedNotes) => {
         setNotes(syncedNotes);
       },
+      onLocalScreenShareEnded: () => {
+        setIsScreenSharing(false);
+        setScreenStream(null);
+      },
       onRoomCommand: (cmd, payload) => {
         if (cmd === 'mute_all' && !isHost) {
           manager.toggleAudio();
@@ -503,9 +508,13 @@ export const MeetingRoomPage: React.FC = () => {
     if (isScreenSharing) {
       webrtcManagerRef.current.stopScreenShare();
       setIsScreenSharing(false);
+      setScreenStream(null);
     } else {
       const stream = await webrtcManagerRef.current.startScreenShare();
-      if (stream) setIsScreenSharing(true);
+      if (stream) {
+        setIsScreenSharing(true);
+        setScreenStream(stream);
+      }
     }
   };
 
@@ -724,7 +733,7 @@ export const MeetingRoomPage: React.FC = () => {
   const localUserPeer: MeetingPeer = {
     id: currentEmployee?.id || 'me',
     name: currentEmployee ? `${currentEmployee.first_name} ${currentEmployee.last_name || ''}`.trim() : 'You',
-    stream: localStream,
+    stream: isScreenSharing ? (screenStream || webrtcManagerRef.current?.getLocalScreenStream() || localStream) : localStream,
     isAudioMuted,
     isVideoMuted,
     isScreenSharing,

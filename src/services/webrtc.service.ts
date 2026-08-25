@@ -27,6 +27,7 @@ export interface WebRTCEventCallbacks {
   onAudioLevelChanged: (peerId: string, level: number) => void;
   onPeerNameResolved?: (peerId: string, name: string) => void;
   onNotesUpdated?: (notes: string) => void;
+  onLocalScreenShareEnded?: () => void;
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -481,11 +482,13 @@ export class WebRTCMeetingManager {
 
       const screenTrack = this.localScreenStream.getVideoTracks()[0];
 
-      // Replace video track in all active peer connections
+      // Replace video track in all active peer connections or add track
       this.peers.forEach((pc) => {
         const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
         if (sender) {
           sender.replaceTrack(screenTrack);
+        } else {
+          pc.addTrack(screenTrack, this.localScreenStream!);
         }
       });
 
@@ -519,6 +522,11 @@ export class WebRTCMeetingManager {
 
     this.isScreenSharing = false;
     this.broadcastState();
+    this.callbacks.onLocalScreenShareEnded?.();
+  }
+
+  getLocalScreenStream(): MediaStream | null {
+    return this.localScreenStream;
   }
 
   toggleHandRaise(): boolean {

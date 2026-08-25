@@ -35,8 +35,11 @@ export const ParticipantTile: React.FC<ParticipantTileProps> = ({
   const [isPipActive, setIsPipActive] = useState(false);
 
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream || null;
+      if (stream) {
+        videoRef.current.play().catch(() => {});
+      }
     }
   }, [stream]);
 
@@ -71,15 +74,17 @@ export const ParticipantTile: React.FC<ParticipantTileProps> = ({
       }`}
     >
       {/* Video Element */}
-      {!isVideoMuted && stream ? (
+      {(!isVideoMuted || isScreenSharing) && stream ? (
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted={isLocal}
-          className={`w-full h-full object-cover transition-all duration-300 ${
+          className={`w-full h-full ${
+            isScreenSharing ? 'object-contain bg-black' : 'object-cover'
+          } transition-all duration-300 ${
             isLocal && !isScreenSharing ? 'scale-x-[-1]' : ''
-          } ${isBlurred ? 'filter blur-sm scale-105' : ''}`}
+          } ${isBlurred && !isScreenSharing ? 'filter blur-sm scale-105' : ''}`}
         />
       ) : (
         /* Avatar Placeholder when video is OFF */
