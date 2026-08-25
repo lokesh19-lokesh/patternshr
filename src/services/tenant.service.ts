@@ -30,8 +30,15 @@ export const tenantService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
+    // 0.1 Try auto-claiming company membership via SECURITY DEFINER RPC (bypasses RLS)
+    try {
+      await supabase.rpc('claim_employee_membership');
+    } catch {
+      // Fallback handled below
+    }
+
     // 1. Get the current user's membership
-    const { data: memberData, error: memberError } = await supabase
+    let { data: memberData, error: memberError } = await supabase
       .from('company_members')
       .select(`
         company_id,
@@ -43,6 +50,81 @@ export const tenantService = {
       .eq('user_id', user.id)
       .limit(1)
       .maybeSingle();
+
+    // 1.1 If not found in company_members, check if an employee record exists with this user's email
+    if ((!memberData || memberError) && user.email) {
+      const { data: empRecord } = await supabase
+        .from('employees')
+        .select(`
+          id, 
+          company_id, 
+          designation_id,
+          designations ( name )
+        `)
+        .ilike('email', user.email.trim())
+        .limit(1)
+        .maybeSingle();
+
+      if (empRecord?.company_id) {
+        // @ts-ignore
+        const desigName = empRecord.designations?.name || '';
+        const isExecutive = /founder|ceo|director|admin/i.test(desigName);
+        
+        let roleQuery = supabase
+          .from('roles')
+          .select('id')
+          .eq('company_id', empRecord.company_id);
+
+        if (isExecutive) {
+          roleQuery = roleQuery.ilike('name', '%admin%');
+        } else {
+          roleQuery = roleQuery.ilike('name', 'employee');
+        }
+
+        const { data: matchedRole } = await roleQuery.limit(1).maybeSingle();
+        let roleId = matchedRole?.id;
+
+        if (!roleId) {
+          const { data: fallbackRole } = await supabase
+            .from('roles')
+            .select('id')
+            .eq('company_id', empRecord.company_id)
+            .limit(1)
+            .maybeSingle();
+          roleId = fallbackRole?.id;
+        }
+
+        // Link user to company_members
+        await supabase.from('company_members').upsert({
+          company_id: empRecord.company_id,
+          user_id: user.id,
+          role_id: roleId || null
+        }, { onConflict: 'company_id, user_id' });
+
+        // Link profile_id on employee record
+        await supabase
+          .from('employees')
+          .update({ profile_id: user.id })
+          .eq('id', empRecord.id);
+
+        // Re-fetch memberData
+        const { data: refreshedMember } = await supabase
+          .from('company_members')
+          .select(`
+            company_id,
+            role_id,
+            user_id,
+            companies ( id, name, logo_url ),
+            roles ( id, name, is_system_role )
+          `)
+          .eq('user_id', user.id)
+          .limit(1)
+          .maybeSingle();
+
+        memberData = refreshedMember;
+        memberError = null;
+      }
+    }
 
     if (memberError || !memberData) {
       return null;
