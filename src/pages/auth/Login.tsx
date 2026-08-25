@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '../../lib/supabase/client';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -117,7 +118,18 @@ export const Login: React.FC = () => {
         </div>
 
         {/* Right Section: Form Card */}
-        <div className="w-full lg:w-[44%] xl:w-[40%] flex items-center justify-center p-4 sm:p-8 lg:p-12 min-h-screen">
+        <div className="w-full lg:w-[44%] xl:w-[40%] flex flex-col items-center justify-center p-4 sm:p-8 lg:p-12 min-h-screen relative">
+          {/* Back to Home Link */}
+          <div className="w-full max-w-md mb-4 flex items-center justify-between">
+            <Link
+              to="/"
+              className="inline-flex items-center space-x-2 text-xs font-bold text-white/90 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl backdrop-blur-md border border-white/20 transition-all shadow-md group"
+            >
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform text-primary-green" />
+              <span>Back to Home</span>
+            </Link>
+          </div>
+
           <div className="w-full max-w-md space-y-7 bg-white p-8 sm:p-10 rounded-3xl shadow-2xl border border-gray-100 text-gray-900">
             <div className="text-center">
               <img
