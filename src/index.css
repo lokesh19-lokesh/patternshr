@@ -87,6 +87,10 @@
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 .hero-title {
   letter-spacing: -0.04em;
   line-height: 0.95;
@@ -95,4 +99,28 @@
 .font-pixel {
   font-family: 'basis33', monospace;
 }
+
+/* GPU hardware acceleration for smooth 60fps animations */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+/* Custom smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0B1120;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00C853;
+}
+
 
