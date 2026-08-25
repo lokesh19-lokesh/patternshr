@@ -58,15 +58,25 @@ export class LiveCaptionService {
     }
   }
 
-  start() {
-    if (this.recognition && !this.isListening) {
+  start(): boolean {
+    if (!this.recognition) {
+      return false;
+    }
+    if (!this.isListening) {
       try {
         this.isListening = true;
         this.recognition.start();
+        return true;
       } catch (e) {
         console.warn('Could not start speech recognition', e);
+        return false;
       }
     }
+    return true;
+  }
+
+  isSupported(): boolean {
+    return !!this.recognition;
   }
 
   stop() {

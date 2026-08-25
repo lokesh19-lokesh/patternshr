@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Save, Sparkles, CheckSquare, ListPlus } from 'lucide-react';
 
 interface InMeetingNotesDrawerProps {
@@ -21,6 +21,10 @@ export const InMeetingNotesDrawer: React.FC<InMeetingNotesDrawerProps> = ({
   const [notes, setNotes] = useState(initialNotes);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setNotes(initialNotes);
+  }, [initialNotes]);
 
   if (!isOpen) return null;
 

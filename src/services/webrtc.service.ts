@@ -26,6 +26,7 @@ export interface WebRTCEventCallbacks {
   onRoomCommand: (command: string, payload: any) => void;
   onAudioLevelChanged: (peerId: string, level: number) => void;
   onPeerNameResolved?: (peerId: string, name: string) => void;
+  onNotesUpdated?: (notes: string) => void;
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -45,6 +46,9 @@ export class WebRTCMeetingManager {
   private localScreenStream: MediaStream | null = null;
   private peers: Map<string, RTCPeerConnection> = new Map();
   private peerNames: Map<string, string> = new Map();
+  private iceCandidatesQueue: Map<string, RTCIceCandidateInit[]> = new Map();
+  private makingOffer: Map<string, boolean> = new Map();
+  private isSettingRemoteAnswerPending: Map<string, boolean> = new Map();
   private callbacks: WebRTCEventCallbacks;
   private audioContext: AudioContext | null = null;
   private localAudioAnalyser: AnalyserNode | null = null;
@@ -89,10 +93,55 @@ export class WebRTCMeetingManager {
         return this.localStream;
       } catch (audioErr) {
         console.error('Permission denied for audio/video', audioErr);
-        // Return dummy empty stream if permissions blocked
         this.localStream = new MediaStream();
         return this.localStream;
       }
+    }
+  }
+
+  // Hot switch devices during an active call
+  async switchDevices(audioDeviceId?: string, videoDeviceId?: string): Promise<MediaStream | null> {
+    try {
+      const constraints: MediaStreamConstraints = {
+        audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
+        video: videoDeviceId
+          ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      };
+
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const newAudioTrack = newStream.getAudioTracks()[0];
+      const newVideoTrack = newStream.getVideoTracks()[0];
+
+      if (this.isAudioMuted && newAudioTrack) {
+        newAudioTrack.enabled = false;
+      }
+      if (this.isVideoMuted && newVideoTrack) {
+        newVideoTrack.enabled = false;
+      }
+
+      // Replace tracks in all RTCPeerConnections
+      this.peers.forEach((pc) => {
+        pc.getSenders().forEach((sender) => {
+          if (sender.track?.kind === 'audio' && newAudioTrack) {
+            sender.replaceTrack(newAudioTrack);
+          } else if (sender.track?.kind === 'video' && !this.isScreenSharing && newVideoTrack) {
+            sender.replaceTrack(newVideoTrack);
+          }
+        });
+      });
+
+      // Stop old tracks
+      if (this.localStream) {
+        this.localStream.getTracks().forEach((t) => t.stop());
+      }
+
+      this.localStream = newStream;
+      this.setupAudioLevelMeter(this.localStream);
+      return this.localStream;
+    } catch (err) {
+      console.warn('Could not switch audio/video devices:', err);
+      return null;
     }
   }
 
@@ -104,6 +153,10 @@ export class WebRTCMeetingManager {
 
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
+
+      if (this.audioContext && this.audioContext.state !== 'closed') {
+        this.audioContext.close().catch(() => {});
+      }
 
       this.audioContext = new AudioCtx();
       const source = this.audioContext.createMediaStreamSource(stream);
@@ -149,7 +202,6 @@ export class WebRTCMeetingManager {
     // Handle Presence state
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState() || {};
-      // Notify of all active peers
       Object.entries(state).forEach(([peerKey, presences]) => {
         const pres = (presences as any[])?.[0];
         const peerName = pres?.name;
@@ -158,7 +210,7 @@ export class WebRTCMeetingManager {
             this.peerNames.set(peerKey, peerName);
             this.callbacks.onPeerNameResolved?.(peerKey, peerName);
           }
-          this.ensurePeerConnection(peerKey, true);
+          this.ensurePeerConnection(peerKey);
         }
       });
     })
@@ -169,7 +221,7 @@ export class WebRTCMeetingManager {
             this.peerNames.set(key, peerName);
             this.callbacks.onPeerNameResolved?.(key, peerName);
           }
-          this.ensurePeerConnection(key, true);
+          this.ensurePeerConnection(key);
         }
       })
       .on('presence', { event: 'leave' }, ({ key }: any) => {
@@ -215,6 +267,11 @@ export class WebRTCMeetingManager {
       })
       .on('broadcast', { event: 'room_command' }, ({ payload }: any) => {
         this.callbacks.onRoomCommand(payload.command, payload);
+      })
+      .on('broadcast', { event: 'notes_sync' }, ({ payload }: any) => {
+        if (payload.senderId !== this.currentEmployeeId && payload.notes !== undefined) {
+          this.callbacks.onNotesUpdated?.(payload.notes);
+        }
       });
 
     // Subscribe and track presence
@@ -233,20 +290,31 @@ export class WebRTCMeetingManager {
     });
   }
 
-  // Ensure PeerConnection exists and initiate offer if polite
-  private ensurePeerConnection(peerId: string, shouldOffer: boolean): RTCPeerConnection {
+  // Determine if this peer is the polite peer in polite-peer pattern
+  private isPolitePeer(peerId: string): boolean {
+    return this.currentEmployeeId.localeCompare(peerId) < 0;
+  }
+
+  // Ensure PeerConnection exists with robust negotiation and track management
+  private ensurePeerConnection(peerId: string): RTCPeerConnection {
     if (this.peers.has(peerId)) {
       return this.peers.get(peerId)!;
     }
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
     this.peers.set(peerId, pc);
+    this.makingOffer.set(peerId, false);
+    this.isSettingRemoteAnswerPending.set(peerId, false);
 
-    // Add local media tracks to PC
+    // Add local tracks (or screen share track if currently sharing)
     if (this.localStream) {
-      this.localStream.getTracks().forEach((track) => {
-        pc.addTrack(track, this.localStream!);
-      });
+      const audioTrack = this.localStream.getAudioTracks()[0];
+      const videoTrack = this.isScreenSharing && this.localScreenStream
+        ? this.localScreenStream.getVideoTracks()[0]
+        : this.localStream.getVideoTracks()[0];
+
+      if (audioTrack) pc.addTrack(audioTrack, this.localStream);
+      if (videoTrack) pc.addTrack(videoTrack, this.localStream);
     }
 
     // ICE Candidate handler
@@ -264,58 +332,97 @@ export class WebRTCMeetingManager {
       }
     };
 
+    // Connection state change
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         this.removePeer(peerId);
       }
     };
 
-    if (shouldOffer) {
-      pc.onnegotiationneeded = async () => {
-        try {
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          this.sendSignal(peerId, 'offer', offer);
-        } catch (err) {
-          console.error('Error creating offer', err);
-        }
-      };
-    }
+    // Polite Peer Perfect Negotiation
+    pc.onnegotiationneeded = async () => {
+      try {
+        this.makingOffer.set(peerId, true);
+        await pc.setLocalDescription();
+        this.sendSignal(peerId, 'offer', pc.localDescription);
+      } catch (err) {
+        console.error(`Error in onnegotiationneeded for peer ${peerId}:`, err);
+      } finally {
+        this.makingOffer.set(peerId, false);
+      }
+    };
 
     return pc;
   }
 
   private async handleReceiveOffer(senderId: string, offer: RTCSessionDescriptionInit) {
-    const pc = this.ensurePeerConnection(senderId, false);
+    const pc = this.ensurePeerConnection(senderId);
+    const isPolite = this.isPolitePeer(senderId);
+    const offerCollision = this.makingOffer.get(senderId) || pc.signalingState !== 'stable';
+
+    if (offerCollision && !isPolite) {
+      // Impolite peer ignores colliding offer
+      return;
+    }
+
     try {
+      if (offerCollision && isPolite) {
+        await pc.setLocalDescription({ type: 'rollback' });
+      }
+
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      this.sendSignal(senderId, 'answer', answer);
+      await pc.setLocalDescription();
+      this.sendSignal(senderId, 'answer', pc.localDescription);
+
+      // Process any queued ICE candidates for this peer
+      await this.drainIceCandidates(senderId, pc);
     } catch (e) {
-      console.error('Error handling offer', e);
+      console.error(`Error handling offer from ${senderId}:`, e);
     }
   }
 
   private async handleReceiveAnswer(senderId: string, answer: RTCSessionDescriptionInit) {
     const pc = this.peers.get(senderId);
-    if (pc) {
-      try {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-      } catch (e) {
-        console.error('Error setting remote description', e);
-      }
+    if (!pc) return;
+
+    try {
+      this.isSettingRemoteAnswerPending.set(senderId, true);
+      await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      await this.drainIceCandidates(senderId, pc);
+    } catch (e) {
+      console.error(`Error setting remote answer for ${senderId}:`, e);
+    } finally {
+      this.isSettingRemoteAnswerPending.set(senderId, false);
     }
   }
 
   private async handleReceiveIceCandidate(senderId: string, candidate: RTCIceCandidateInit) {
     const pc = this.peers.get(senderId);
-    if (pc) {
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) {
-        console.error('Error adding ICE candidate', e);
+    if (!pc || !pc.remoteDescription) {
+      const queue = this.iceCandidatesQueue.get(senderId) || [];
+      queue.push(candidate);
+      this.iceCandidatesQueue.set(senderId, queue);
+      return;
+    }
+
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (e) {
+      console.warn(`Error adding ICE candidate from ${senderId}:`, e);
+    }
+  }
+
+  private async drainIceCandidates(peerId: string, pc: RTCPeerConnection) {
+    const candidates = this.iceCandidatesQueue.get(peerId);
+    if (candidates && candidates.length > 0) {
+      for (const cand of candidates) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+        } catch (err) {
+          console.warn(`Error draining queued ICE candidate for ${peerId}:`, err);
+        }
       }
+      this.iceCandidatesQueue.delete(peerId);
     }
   }
 
@@ -433,6 +540,17 @@ export class WebRTCMeetingManager {
     });
   }
 
+  sendBroadcastNotes(notes: string) {
+    this.channel?.send({
+      type: 'broadcast',
+      event: 'notes_sync',
+      payload: {
+        senderId: this.currentEmployeeId,
+        notes,
+      },
+    });
+  }
+
   sendRoomCommand(command: string, payload: any = {}) {
     this.channel?.send({
       type: 'broadcast',
@@ -476,6 +594,9 @@ export class WebRTCMeetingManager {
       pc.close();
       this.peers.delete(peerId);
     }
+    this.iceCandidatesQueue.delete(peerId);
+    this.makingOffer.delete(peerId);
+    this.isSettingRemoteAnswerPending.delete(peerId);
     this.callbacks.onRemoteStreamRemoved(peerId);
     this.callbacks.onPeerLeft(peerId);
   }
@@ -493,7 +614,7 @@ export class WebRTCMeetingManager {
   // Cleanup
   leaveRoom() {
     clearInterval(this.audioLevelInterval);
-    if (this.audioContext) {
+    if (this.audioContext && this.audioContext.state !== 'closed') {
       this.audioContext.close().catch(() => {});
     }
 
@@ -507,6 +628,9 @@ export class WebRTCMeetingManager {
 
     this.peers.forEach((pc) => pc.close());
     this.peers.clear();
+    this.iceCandidatesQueue.clear();
+    this.makingOffer.clear();
+    this.isSettingRemoteAnswerPending.clear();
 
     if (this.channel) {
       supabase.removeChannel(this.channel);

@@ -631,4 +631,19 @@ export const meetingService = {
 
     if (error) throw error;
   },
+
+  // 17. Toggle Meeting Room Lock
+  async toggleMeetingLock(companyId: string, meetingId: string, isLocked: boolean): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('meetings')
+        .update({ is_locked: isLocked })
+        .eq('company_id', companyId)
+        .eq('id', meetingId);
+      return !error;
+    } catch (e) {
+      console.warn('Error updating meeting lock', e);
+      return false;
+    }
+  },
 };

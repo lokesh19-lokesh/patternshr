@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../lib/auth/AuthProvider';
 import { useTenant } from '../../../lib/auth/TenantProvider';
@@ -13,6 +13,7 @@ import type {
 } from '../../../services/meeting.service';
 import { WebRTCMeetingManager } from '../../../services/webrtc.service';
 import { LiveCaptionService } from '../../../services/captions.service';
+import { supabase } from '../../../lib/supabase/client';
 
 import { PreJoinScreen } from './PreJoinScreen';
 import { WaitingRoomScreen } from './WaitingRoomScreen';
@@ -74,20 +75,23 @@ export const MeetingRoomPage: React.FC = () => {
   // Notes
   const [notes, setNotes] = useState('');
 
-  // Host Controls
+  // Host Controls & Permissions
   const [isLocked, setIsLocked] = useState(false);
   const [allowChat, setAllowChat] = useState(true);
   const [allowScreenShare, setAllowScreenShare] = useState(true);
   const [allowReactions, setAllowReactions] = useState(true);
 
-  // Managers Refs
+  // Managers & Channel Refs
   const webrtcManagerRef = useRef<WebRTCMeetingManager | null>(null);
   const captionServiceRef = useRef<LiveCaptionService | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const waitingChannelRef = useRef<any>(null);
 
   // Initial Load: Meeting details, workspace employees and local media preview
   useEffect(() => {
+    let isMounted = true;
+
     const init = async () => {
       if (!company || !user || !meetingCode) return;
       try {
@@ -98,6 +102,8 @@ export const MeetingRoomPage: React.FC = () => {
           employeeService.getEmployees(company.id),
         ]);
 
+        if (!isMounted) return;
+
         setCurrentEmployee(emp);
         setMeeting(meet);
         setAllEmployees(emps || []);
@@ -105,62 +111,77 @@ export const MeetingRoomPage: React.FC = () => {
         if (meet) {
           setNotes(meet.notes || '');
           setIsLocked(meet.is_locked || false);
+          if (meet.settings) {
+            setAllowChat(meet.settings.allow_chat !== false);
+            setAllowScreenShare(meet.settings.allow_screen_share !== false);
+            setAllowReactions(meet.settings.allow_reactions !== false);
+          }
         }
 
         // Initialize local camera preview for pre-join screen
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-          setLocalStream(stream);
+          if (isMounted) setLocalStream(stream);
         } catch (mediaErr) {
           console.warn('Could not get full media for preview', mediaErr);
           try {
             const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            setLocalStream(audioOnly);
-            setIsVideoMuted(true);
+            if (isMounted) {
+              setLocalStream(audioOnly);
+              setIsVideoMuted(true);
+            }
           } catch (audioErr) {
-            setIsAudioMuted(true);
-            setIsVideoMuted(true);
+            if (isMounted) {
+              setIsAudioMuted(true);
+              setIsVideoMuted(true);
+            }
           }
         }
       } catch (err) {
         console.error('Error initializing meeting room', err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     init();
 
     return () => {
-      // Cleanup preview tracks
+      isMounted = false;
       if (localStream) {
         localStream.getTracks().forEach((t) => t.stop());
       }
     };
   }, [company, user, meetingCode]);
 
-  const resolvePeerName = (peerId: string, fallbackName?: string): string => {
-    if (fallbackName && fallbackName !== 'Team Member' && fallbackName !== 'Participant' && fallbackName.trim().length > 0) {
-      return fallbackName.trim();
-    }
-    // 1. Check in meeting participants
-    const meetParticipant = meeting?.participants?.find(
-      (p) => p.employee_id === peerId || p.employee?.id === peerId
-    );
-    if (meetParticipant?.employee) {
-      return `${meetParticipant.employee.first_name} ${meetParticipant.employee.last_name || ''}`.trim();
-    }
-    // 2. Check in meeting host
-    if (meeting?.host_employee_id === peerId && meeting.host) {
-      return `${meeting.host.first_name} ${meeting.host.last_name || ''}`.trim();
-    }
-    // 3. Check in workspace employees
-    const matchedEmp = allEmployees.find((e) => e.id === peerId);
-    if (matchedEmp) {
-      return `${matchedEmp.first_name} ${matchedEmp.last_name || ''}`.trim();
-    }
-    return (fallbackName && fallbackName !== 'Team Member' ? fallbackName : null) || 'Participant';
-  };
+  const isHost = meeting?.host_employee_id === currentEmployee?.id || role?.name?.toLowerCase().includes('admin');
+
+  // Multi-tier Name Resolver
+  const resolvePeerName = useCallback(
+    (peerId: string, fallbackName?: string): string => {
+      if (fallbackName && fallbackName !== 'Team Member' && fallbackName !== 'Participant' && fallbackName.trim().length > 0) {
+        return fallbackName.trim();
+      }
+      // 1. Check in meeting participants
+      const meetParticipant = meeting?.participants?.find(
+        (p) => p.employee_id === peerId || p.employee?.id === peerId
+      );
+      if (meetParticipant?.employee) {
+        return `${meetParticipant.employee.first_name} ${meetParticipant.employee.last_name || ''}`.trim();
+      }
+      // 2. Check in meeting host
+      if (meeting?.host_employee_id === peerId && meeting.host) {
+        return `${meeting.host.first_name} ${meeting.host.last_name || ''}`.trim();
+      }
+      // 3. Check in workspace employees
+      const matchedEmp = allEmployees.find((e) => e.id === peerId);
+      if (matchedEmp) {
+        return `${matchedEmp.first_name} ${matchedEmp.last_name || ''}`.trim();
+      }
+      return (fallbackName && fallbackName !== 'Team Member' ? fallbackName : null) || 'Participant';
+    },
+    [meeting, allEmployees]
+  );
 
   // Keep remote peer names up to date when directory or meeting info loads
   useEffect(() => {
@@ -176,24 +197,12 @@ export const MeetingRoomPage: React.FC = () => {
         return peer;
       })
     );
-  }, [allEmployees, meeting]);
+  }, [allEmployees, meeting, resolvePeerName, remotePeers.length]);
 
-  const isHost = meeting?.host_employee_id === currentEmployee?.id || role?.name?.toLowerCase().includes('admin');
-
-  // Join Call & Setup Signaling
-  const handleJoinCall = async () => {
+  // Start In-Call WebRTC and Signaling Session
+  const startInCallSession = useCallback(async () => {
     if (!company || !currentEmployee || !meetingCode || !meeting) return;
 
-    // Check waiting room condition if not host
-    if (meeting.waiting_room_enabled && !isHost) {
-      setStage('waiting');
-      // Broadcast to host that participant is waiting
-      return;
-    }
-
-    setStage('in_call');
-
-    // Initialize WebRTC Manager
     const empName = `${currentEmployee.first_name} ${currentEmployee.last_name || ''}`.trim();
 
     const manager = new WebRTCMeetingManager(meetingCode, currentEmployee.id, empName, {
@@ -292,14 +301,30 @@ export const MeetingRoomPage: React.FC = () => {
         setMessages((prev) => [...prev, msg]);
         setUnreadChatCount((prev) => prev + 1);
       },
+      onNotesUpdated: (syncedNotes) => {
+        setNotes(syncedNotes);
+      },
       onRoomCommand: (cmd, payload) => {
         if (cmd === 'mute_all' && !isHost) {
           manager.toggleAudio();
           setIsAudioMuted(true);
+        } else if (cmd === 'mute_user' && payload.targetId === currentEmployee.id) {
+          if (!isAudioMuted) {
+            manager.toggleAudio();
+            setIsAudioMuted(true);
+          }
+        } else if (cmd === 'remove_user' && payload.targetId === currentEmployee.id) {
+          alert('You have been removed from the meeting by the host.');
+          handleLeaveMeeting();
+        } else if (cmd === 'update_permissions') {
+          if (!isHost) {
+            if (payload.allowChat !== undefined) setAllowChat(payload.allowChat);
+            if (payload.allowScreenShare !== undefined) setAllowScreenShare(payload.allowScreenShare);
+            if (payload.allowReactions !== undefined) setAllowReactions(payload.allowReactions);
+            if (payload.isLocked !== undefined) setIsLocked(payload.isLocked);
+          }
         } else if (cmd === 'end_meeting') {
           handleLeaveMeeting();
-        } else if (cmd === 'admit_user' && payload.targetId === currentEmployee.id) {
-          setStage('in_call');
         } else if (cmd === 'user_waiting' && isHost) {
           const waitingName = resolvePeerName(payload.senderId, payload.name || payload.senderName);
           setWaitingParticipants((prev) => {
@@ -334,6 +359,75 @@ export const MeetingRoomPage: React.FC = () => {
         setTimeout(() => setCaptionText(''), 4000);
       }
     });
+  }, [company, currentEmployee, meetingCode, meeting, isHost, resolvePeerName, remotePeers, isAudioMuted]);
+
+  // Waiting Room Listener
+  useEffect(() => {
+    if (stage !== 'waiting' || !company || !currentEmployee || !meetingCode) return;
+
+    const channelName = `meeting_room_${meetingCode}`;
+    const ch = supabase.channel(channelName);
+    waitingChannelRef.current = ch;
+
+    const empName = `${currentEmployee.first_name} ${currentEmployee.last_name || ''}`.trim();
+
+    ch.on('broadcast', { event: 'room_command' }, ({ payload }: any) => {
+      if (payload.command === 'admit_user' && payload.targetId === currentEmployee.id) {
+        if (waitingChannelRef.current) {
+          supabase.removeChannel(waitingChannelRef.current);
+          waitingChannelRef.current = null;
+        }
+        setStage('in_call');
+        startInCallSession();
+      } else if (payload.command === 'reject_user' && payload.targetId === currentEmployee.id) {
+        if (waitingChannelRef.current) {
+          supabase.removeChannel(waitingChannelRef.current);
+          waitingChannelRef.current = null;
+        }
+        alert('The host has declined your request to join the meeting.');
+        navigate('/dashboard/meetings');
+      }
+    });
+
+    ch.subscribe((status: string) => {
+      if (status === 'SUBSCRIBED') {
+        ch.send({
+          type: 'broadcast',
+          event: 'room_command',
+          payload: {
+            command: 'user_waiting',
+            senderId: currentEmployee.id,
+            senderName: empName,
+            name: empName,
+          },
+        });
+      }
+    });
+
+    return () => {
+      if (waitingChannelRef.current) {
+        supabase.removeChannel(waitingChannelRef.current);
+        waitingChannelRef.current = null;
+      }
+    };
+  }, [stage, company, currentEmployee, meetingCode, navigate, startInCallSession]);
+
+  // Join Call Trigger
+  const handleJoinCall = async () => {
+    if (!company || !currentEmployee || !meetingCode || !meeting) return;
+
+    if (meeting.is_locked && !isHost) {
+      alert('This meeting is currently locked by the host.');
+      return;
+    }
+
+    if (meeting.waiting_room_enabled && !isHost) {
+      setStage('waiting');
+      return;
+    }
+
+    setStage('in_call');
+    await startInCallSession();
   };
 
   // Keyboard Shortcuts (M, C, S, H, F, Esc)
@@ -379,6 +473,10 @@ export const MeetingRoomPage: React.FC = () => {
   };
 
   const handleToggleScreenShare = async () => {
+    if (!allowScreenShare && !isHost) {
+      alert('Screen sharing is currently disabled by the host.');
+      return;
+    }
     if (!webrtcManagerRef.current) return;
     if (isScreenSharing) {
       webrtcManagerRef.current.stopScreenShare();
@@ -396,6 +494,10 @@ export const MeetingRoomPage: React.FC = () => {
   };
 
   const handleSendReaction = (emoji: string) => {
+    if (!allowReactions && !isHost) {
+      alert('Reactions are currently disabled by the host.');
+      return;
+    }
     webrtcManagerRef.current?.sendReaction(emoji);
     const id = Math.random().toString();
     setFloatingReactions((prev) => [...prev, { id, emoji, senderName: 'You' }]);
@@ -409,8 +511,12 @@ export const MeetingRoomPage: React.FC = () => {
       captionServiceRef.current?.stop();
       setIsCaptionsActive(false);
     } else {
-      captionServiceRef.current?.start();
-      setIsCaptionsActive(true);
+      const started = captionServiceRef.current?.start();
+      if (started) {
+        setIsCaptionsActive(true);
+      } else {
+        alert('Live Captions (Web Speech API) is not supported or permission was denied in this browser.');
+      }
     }
   };
 
@@ -452,7 +558,21 @@ export const MeetingRoomPage: React.FC = () => {
     }
   };
 
+  // Hot Device Switcher
+  const handleSelectDevices = async (audioId: string, videoId: string) => {
+    if (webrtcManagerRef.current) {
+      const newStream = await webrtcManagerRef.current.switchDevices(audioId, videoId);
+      if (newStream) {
+        setLocalStream(newStream);
+      }
+    }
+  };
+
   const handleSendMessage = async (text: string, attachments: any[] = []) => {
+    if (!allowChat && !isHost) {
+      alert('In-meeting chat is currently disabled by the host.');
+      return;
+    }
     if (!company || !currentEmployee || !meeting) return;
     try {
       const msg = await meetingService.sendMeetingMessage(
@@ -472,6 +592,7 @@ export const MeetingRoomPage: React.FC = () => {
   const handleSaveNotes = async (newNotes: string) => {
     if (!company || !meeting) return;
     setNotes(newNotes);
+    webrtcManagerRef.current?.sendBroadcastNotes(newNotes);
     await meetingService.saveMeetingNotes(company.id, meeting.id, newNotes);
   };
 
@@ -511,9 +632,49 @@ export const MeetingRoomPage: React.FC = () => {
     webrtcManagerRef.current?.sendRoomCommand('mute_all');
   };
 
+  const handleMuteParticipant = (peerId: string) => {
+    webrtcManagerRef.current?.sendRoomCommand('mute_user', { targetId: peerId });
+  };
+
+  const handleRemoveParticipant = (peerId: string) => {
+    webrtcManagerRef.current?.sendRoomCommand('remove_user', { targetId: peerId });
+    setRemotePeers((prev) => prev.filter((p) => p.id !== peerId));
+  };
+
   const handleAdmitWaiting = (participantId: string) => {
     webrtcManagerRef.current?.sendRoomCommand('admit_user', { targetId: participantId });
     setWaitingParticipants((prev) => prev.filter((p) => p.id !== participantId));
+  };
+
+  const handleRejectWaiting = (participantId: string) => {
+    webrtcManagerRef.current?.sendRoomCommand('reject_user', { targetId: participantId });
+    setWaitingParticipants((prev) => prev.filter((p) => p.id !== participantId));
+  };
+
+  const handleToggleLock = async () => {
+    if (!company || !meeting) return;
+    const nextLocked = !isLocked;
+    setIsLocked(nextLocked);
+    webrtcManagerRef.current?.sendRoomCommand('update_permissions', { isLocked: nextLocked });
+    await meetingService.toggleMeetingLock(company.id, meeting.id, nextLocked);
+  };
+
+  const handleToggleAllowChat = () => {
+    const nextVal = !allowChat;
+    setAllowChat(nextVal);
+    webrtcManagerRef.current?.sendRoomCommand('update_permissions', { allowChat: nextVal });
+  };
+
+  const handleToggleAllowScreenShare = () => {
+    const nextVal = !allowScreenShare;
+    setAllowScreenShare(nextVal);
+    webrtcManagerRef.current?.sendRoomCommand('update_permissions', { allowScreenShare: nextVal });
+  };
+
+  const handleToggleAllowReactions = () => {
+    const nextVal = !allowReactions;
+    setAllowReactions(nextVal);
+    webrtcManagerRef.current?.sendRoomCommand('update_permissions', { allowReactions: nextVal });
   };
 
   const handleToggleDrawer = (drawer: 'chat' | 'people' | 'notes' | 'interview' | 'review') => {
@@ -630,8 +791,11 @@ export const MeetingRoomPage: React.FC = () => {
           remotePeers={remotePeers}
           waitingList={waitingParticipants}
           isHost={!!isHost}
+          onMuteParticipant={handleMuteParticipant}
           onMuteAll={handleMuteAll}
+          onRemoveParticipant={handleRemoveParticipant}
           onAdmitWaiting={handleAdmitWaiting}
+          onRejectWaiting={handleRejectWaiting}
         />
 
         <InMeetingNotesDrawer
@@ -686,6 +850,7 @@ export const MeetingRoomPage: React.FC = () => {
       <DeviceSettingsModal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
+        onSelectDevices={handleSelectDevices}
       />
 
       {/* Host Controls Security Modal */}
@@ -696,10 +861,10 @@ export const MeetingRoomPage: React.FC = () => {
         allowChat={allowChat}
         allowScreenShare={allowScreenShare}
         allowReactions={allowReactions}
-        onToggleLock={() => setIsLocked(!isLocked)}
-        onToggleAllowChat={() => setAllowChat(!allowChat)}
-        onToggleAllowScreenShare={() => setAllowScreenShare(!allowScreenShare)}
-        onToggleAllowReactions={() => setAllowReactions(!allowReactions)}
+        onToggleLock={handleToggleLock}
+        onToggleAllowChat={handleToggleAllowChat}
+        onToggleAllowScreenShare={handleToggleAllowScreenShare}
+        onToggleAllowReactions={handleToggleAllowReactions}
         onEndMeetingForAll={handleEndMeetingForAll}
       />
     </div>
