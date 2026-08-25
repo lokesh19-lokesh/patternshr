@@ -1,277 +1,205 @@
 import React, { useState } from 'react';
-import { 
-  Video, 
-  Clock, 
-  Kanban, 
-  DollarSign, 
-  Sparkles, 
-  CheckCircle2, 
-  ArrowRight
-} from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+const NOVA_VIDEO_URL = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260729_102822_0e6c87e8-c141-4744-bf32-ad30db296371.mp4';
+const PORTRAIT_URL = 'https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260728_050334_5b076e26-0ce7-4898-b432-d764190e448f.png&w=1280&q=85';
+
 export const LandingFeatureTabs: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'meetings' | 'attendance' | 'sprints' | 'payroll'>('meetings');
+  const [activeCapability, setActiveCapability] = useState<number>(0);
+
+  const capabilities = [
+    {
+      idx: '01',
+      title: 'Real-Time AI Video Minutes',
+      body: 'Records spoken audio during team calls and extracts assigned Jira action items with zero manual copying.',
+      tag: 'Live WebRTC Speech-to-Text'
+    },
+    {
+      idx: '02',
+      title: '1-Click Payroll & Tax Engine',
+      body: 'Disburses compliant salaries with automated tax formulas, deductions, and encrypted PDF payslips in under 4 mins.',
+      tag: '100% Statutory Compliant'
+    },
+    {
+      idx: '03',
+      title: 'Geo-Fenced Biometric Attendance',
+      body: 'Validates employee coordinates and office IP ranges with zero-dispute attendance ledgers and overtime calculations.',
+      tag: 'GPS & IP Verified'
+    },
+    {
+      idx: '04',
+      title: 'Agile Sprint & Task Velocity',
+      body: 'Integrates Kanban boards, story points, and burndown charts directly into company employee profiles.',
+      tag: 'Integrated Backlog'
+    }
+  ];
 
   return (
-    <section id="features" className="py-24 bg-slate-50 text-slate-900 relative">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-4">
-          <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold uppercase tracking-wider">
-            <Sparkles className="h-3.5 w-3.5 text-primary-green" />
-            <span>Interactive Product Tour</span>
+    <section id="features" className="relative py-20 sm:py-28 bg-[#0a0a0a] text-white overflow-hidden">
+      {/* Background Ambient Video Layer */}
+      <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <video
+          src={NOVA_VIDEO_URL}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover opacity-35"
+        />
+        {/* Soft Vignette & Gradient Shading */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-[#0a0a0a]/90 pointer-events-none"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/95 via-[#0a0a0a]/70 to-[#0a0a0a]/95 pointer-events-none"></div>
+      </div>
+
+      {/* Main Foreground Content */}
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 md:px-12 relative z-10 space-y-12 sm:space-y-16">
+        
+        {/* ========================================================================= */}
+        {/* TOP ROW: Service Ticker + Editorial Intro                                 */}
+        {/* ========================================================================= */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pt-4 border-b border-white/15 pb-8">
+          {/* Left Service list */}
+          <div className="space-y-1.5">
+            <div className="font-mono text-xs uppercase tracking-[0.15em] text-white/90 drop-shadow-md">
+              / AI WORKFORCE AUTOMATION
+            </div>
+            <div className="font-mono text-xs uppercase tracking-[0.15em] text-emerald-400 drop-shadow-md">
+              / STATUTORY PAYROLL & TAX
+            </div>
+            <div className="font-mono text-xs uppercase tracking-[0.15em] text-white/90 drop-shadow-md">
+              / REAL-TIME AI MEETING MINUTES
+            </div>
           </div>
 
-          <h2 className="text-3xl sm:text-5xl font-black text-slate-950 tracking-tight">
-            Designed for Speed, Simplicity & Scale
-          </h2>
-
-          <p className="text-base text-slate-600">
-            Click through our signature workflows to see how PatternsHR eliminates administrative friction.
-          </p>
+          {/* Right Editorial Statement */}
+          <div className="max-w-md sm:text-right">
+            <p className="text-base sm:text-lg leading-relaxed text-white drop-shadow-md font-normal">
+              We design workforce automation that brings clarity, precision, and efficiency to the way your company operates.
+            </p>
+          </div>
         </div>
 
-        {/* Tab Buttons (Keka Style) */}
-        <div className="mt-12 flex flex-wrap justify-center gap-2 p-1.5 bg-slate-200/80 max-w-2xl mx-auto rounded-2xl border border-slate-300/60">
-          <button
-            onClick={() => setActiveTab('meetings')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-extrabold flex items-center space-x-2 transition-all ${
-              activeTab === 'meetings'
-                ? 'bg-white text-slate-900 shadow-md'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Video className="h-4 w-4 text-primary-green" />
-            <span>AI Meetings</span>
-          </button>
+        {/* ========================================================================= */}
+        {/* MAIN ROW: Left Headline & Contact Card + Right Frosted Capability Panel    */}
+        {/* ========================================================================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+          
+          {/* Left Column: Badge + Big Title + CTAs + Advisor Glass Card */}
+          <div className="lg:col-span-7 space-y-6 sm:space-y-8">
+            {/* Left-Accent Glass Badge */}
+            <div className="inline-block border-l-2 border-primary-green bg-white/15 px-3.5 py-1.5 backdrop-blur-md">
+              <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-white font-bold">
+                Designed for Speed, Simplicity & Scale
+              </span>
+            </div>
 
-          <button
-            onClick={() => setActiveTab('attendance')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-extrabold flex items-center space-x-2 transition-all ${
-              activeTab === 'attendance'
-                ? 'bg-white text-slate-900 shadow-md'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Clock className="h-4 w-4 text-blue-600" />
-            <span>Geo Attendance</span>
-          </button>
+            {/* Main Headline */}
+            <h2 className="text-4xl sm:text-6xl lg:text-6.5xl font-normal leading-[1.08] tracking-tight text-white drop-shadow-lg">
+              Clear. Precise.<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-emerald-300 to-primary-green font-medium">
+                Automated.
+              </span>
+            </h2>
 
-          <button
-            onClick={() => setActiveTab('sprints')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-extrabold flex items-center space-x-2 transition-all ${
-              activeTab === 'sprints'
-                ? 'bg-white text-slate-900 shadow-md'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Kanban className="h-4 w-4 text-purple-600" />
-            <span>Agile Sprints</span>
-          </button>
+            <p className="text-sm sm:text-base text-white/80 max-w-lg leading-relaxed drop-shadow-md">
+              From biometric GPS clock-in to 1-click statutory tax disbursement, PatternsHR turns administrative friction into seamless velocity.
+            </p>
 
-          <button
-            onClick={() => setActiveTab('payroll')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-extrabold flex items-center space-x-2 transition-all ${
-              activeTab === 'payroll'
-                ? 'bg-white text-slate-900 shadow-md'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <DollarSign className="h-4 w-4 text-emerald-600" />
-            <span>1-Click Payroll</span>
-          </button>
-        </div>
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3.5 pt-1">
+              <Link
+                to="/signup"
+                className="rounded-full bg-white px-7 py-3.5 text-xs sm:text-sm font-bold text-black hover:bg-white/85 transition-all shadow-xl flex items-center space-x-2"
+              >
+                <span>Start Free 14-Day Trial</span>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
 
-        {/* Tab Content Display */}
-        <div className="mt-10 bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-xl">
-          {/* TAB 1: MEETINGS */}
-          {activeTab === 'meetings' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center animate-fade-in">
-              <div className="lg:col-span-6 space-y-6">
-                <div className="inline-flex items-center space-x-2 px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full text-xs font-bold border border-emerald-200">
-                  <Sparkles className="h-3.5 w-3.5 text-primary-green" />
-                  <span>Next-Gen Video Conferencing</span>
+              <a
+                href="#pricing"
+                className="rounded-full border border-white/25 bg-white/10 backdrop-blur-md px-6 py-3.5 text-xs sm:text-sm font-semibold text-white hover:bg-white/20 transition-all flex items-center space-x-2"
+              >
+                <span>Explore Pricing</span>
+              </a>
+            </div>
+
+            {/* Glass Contact Card */}
+            <div className="pt-3 max-w-md">
+              <div className="flex items-center gap-4 rounded-2xl bg-white/10 p-3.5 backdrop-blur-md border border-white/15 shadow-2xl">
+                <img
+                  src={PORTRAIT_URL}
+                  alt="Mitha, co-founder of PatternsHR"
+                  className="h-20 w-16 sm:h-24 sm:w-20 rounded-xl object-cover flex-shrink-0 shadow-md"
+                />
+                <div className="space-y-1 pr-2">
+                  <div className="text-sm font-bold text-white">Talk with Mitha</div>
+                  <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-300">
+                    Co-founder of PatternsHR
+                  </div>
+                  <Link
+                    to="/signup"
+                    className="inline-flex items-center space-x-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-black hover:bg-white/85 transition-colors mt-1 shadow-sm"
+                  >
+                    <span>Book 15-mins call</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
+              </div>
+            </div>
+          </div>
 
-                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-950">
-                  Meet, Decide & Automate Action Items in Real Time
-                </h3>
-
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Never lose track of meeting minutes again. PatternsHR records spoken conversation transcripts in real time, automatically extracts assigned to-dos with @mentions, and generates concise summaries for team review.
-                </p>
-
-                <div className="space-y-3 text-xs text-slate-700 font-medium">
-                  <div className="flex items-center space-x-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-primary-green flex-shrink-0" />
-                    <span>No plugins or third-party bots needed — built right into your workspace.</span>
-                  </div>
-                  <div className="flex items-center space-x-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-primary-green flex-shrink-0" />
-                    <span>Picture-in-Picture (PiP) allows working in other tabs while watching video.</span>
-                  </div>
-                  <div className="flex items-center space-x-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-primary-green flex-shrink-0" />
-                    <span>Post-meeting recap modal with 1-click text export and minutes copy.</span>
-                  </div>
-                </div>
-
-                <Link
-                  to="/signup"
-                  className="inline-flex items-center space-x-2 text-primary-green font-extrabold text-xs hover:underline"
-                >
-                  <span>Launch your first video room now</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+          {/* Right Column: Frosted Capability Panel (4 Numbered Rows) */}
+          <div className="lg:col-span-5">
+            <div className="w-full rounded-3xl border border-white/15 bg-white/10 backdrop-blur-md p-6 sm:p-7 shadow-2xl space-y-2">
+              <div className="flex items-center justify-between pb-3 border-b border-white/15">
+                <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/70">
+                  Platform Capabilities
+                </span>
+                <span className="h-2 w-2 rounded-full bg-primary-green animate-pulse"></span>
               </div>
 
-              <div className="lg:col-span-6 bg-slate-50 rounded-2xl p-6 border border-slate-200 space-y-4 shadow-inner">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                  <span className="font-extrabold text-xs text-slate-900">Live AI Meeting Summary</span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                    Generated in 1.2s
-                  </span>
-                </div>
+              <div className="divide-y divide-white/15">
+                {capabilities.map((cap, idx) => {
+                  const isSelected = activeCapability === idx;
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => setActiveCapability(idx)}
+                      className={`py-4 cursor-pointer group transition-all ${
+                        isSelected ? 'opacity-100 bg-white/[0.04] -mx-2 px-2 rounded-xl' : 'opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <span className="font-mono text-[11px] tracking-[0.15em] text-emerald-400 font-bold">
+                            {cap.idx}
+                          </span>
+                          <h4 className="text-sm sm:text-base font-medium text-white group-hover:text-emerald-300 transition-colors">
+                            {cap.title}
+                          </h4>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-white/40 group-hover:translate-x-1 group-hover:text-white transition-all" />
+                      </div>
 
-                <div className="space-y-2.5 text-xs">
-                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-1 shadow-sm">
-                    <span className="text-[10px] text-emerald-700 font-bold uppercase">Decisions Made</span>
-                    <p className="text-slate-700 text-xs">Approved expansion of engineering team with 4 new Senior Fullstack engineers.</p>
-                  </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-white/80 pl-7">
+                        {cap.body}
+                      </p>
 
-                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-1 shadow-sm">
-                    <span className="text-[10px] text-blue-700 font-bold uppercase">Assigned Tasks</span>
-                    <div className="flex items-center justify-between text-xs text-slate-900 font-medium">
-                      <span>Post job listings on portal</span>
-                      <span className="text-primary-green font-bold">@HR_Lead</span>
+                      {isSelected && (
+                        <div className="mt-2.5 pl-7">
+                          <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono">
+                            {cap.tag}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             </div>
-          )}
+          </div>
 
-          {/* TAB 2: ATTENDANCE */}
-          {activeTab === 'attendance' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center animate-fade-in">
-              <div className="lg:col-span-6 space-y-6">
-                <div className="inline-flex items-center space-x-2 px-3 py-1 bg-blue-50 text-blue-800 rounded-full text-xs font-bold border border-blue-200">
-                  <Clock className="h-3.5 w-3.5 text-blue-600" />
-                  <span>Zero-Dispute Time Tracking</span>
-                </div>
-
-                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-950">
-                  Geo-Fenced & IP-Verified Attendance Logs
-                </h3>
-
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Guarantee workforce accountability across office branches and remote teams. Track check-ins, early departures, and overtime with cryptographic location verification.
-                </p>
-
-                <div className="space-y-3 text-xs text-slate-700 font-medium">
-                  <div className="flex items-center space-x-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                    <span>Real-time presence ticker showing who is active right now.</span>
-                  </div>
-                  <div className="flex items-center space-x-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                    <span>Automatic sync with monthly payroll time sheets.</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="lg:col-span-6 bg-slate-50 rounded-2xl p-6 border border-slate-200 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                  <span className="font-extrabold text-xs text-slate-900">Today&apos;s Attendance Breakdown</span>
-                  <span className="text-[10px] text-slate-500 font-mono">Live Sync</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                    <div className="text-slate-500 text-[10px] uppercase font-bold">On Time</div>
-                    <div className="text-2xl font-black text-emerald-600 mt-1">118 Staff</div>
-                  </div>
-                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                    <div className="text-slate-500 text-[10px] uppercase font-bold">Approved Leaves</div>
-                    <div className="text-2xl font-black text-amber-600 mt-1">6 Staff</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: SPRINTS */}
-          {activeTab === 'sprints' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center animate-fade-in">
-              <div className="lg:col-span-6 space-y-6">
-                <div className="inline-flex items-center space-x-2 px-3 py-1 bg-purple-50 text-purple-800 rounded-full text-xs font-bold border border-purple-200">
-                  <Kanban className="h-3.5 w-3.5 text-purple-600" />
-                  <span>Agile Project Management</span>
-                </div>
-
-                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-950">
-                  Sprint Planning Built for Modern High-Velocity Teams
-                </h3>
-
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Bridge the gap between HR and project execution. Assign tasks, track burndown charts, manage story points, and review team velocity within the same platform.
-                </p>
-              </div>
-
-              <div className="lg:col-span-6 bg-slate-50 rounded-2xl p-6 border border-slate-200 space-y-3">
-                <div className="text-xs font-extrabold text-slate-900 mb-2">Sprint 24 Board (In Progress)</div>
-                <div className="grid grid-cols-3 gap-2.5 text-[10px]">
-                  <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-sm">
-                    <span className="font-extrabold text-slate-500">TO DO (4)</span>
-                    <div className="p-2 bg-slate-100 rounded-lg text-slate-800 font-bold">Design Mockups</div>
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-sm">
-                    <span className="font-extrabold text-amber-600">IN PROGRESS (2)</span>
-                    <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 font-bold">WebRTC Video</div>
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-sm">
-                    <span className="font-extrabold text-emerald-600">DONE (8)</span>
-                    <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 font-bold">PDF Payslips</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: PAYROLL */}
-          {activeTab === 'payroll' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center animate-fade-in">
-              <div className="lg:col-span-6 space-y-6">
-                <div className="inline-flex items-center space-x-2 px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full text-xs font-bold border border-emerald-200">
-                  <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>Compliant Compensation</span>
-                </div>
-
-                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-950">
-                  Accurate, Stress-Free 1-Click Monthly Payroll
-                </h3>
-
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Eliminate spreadsheet errors. PatternsHR integrates real-time attendance, unpaid leaves, tax brackets, and bonuses to generate instant compliant payslips.
-                </p>
-              </div>
-
-              <div className="lg:col-span-6 bg-slate-50 rounded-2xl p-6 border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between text-xs font-extrabold text-slate-900 border-b border-slate-200 pb-2">
-                  <span>August 2026 Payroll Run</span>
-                  <span className="text-primary-green">Status: Ready to Disburse</span>
-                </div>
-                <div className="p-4 bg-white rounded-xl flex items-center justify-between text-xs border border-slate-200 shadow-sm">
-                  <div>
-                    <div className="font-bold text-slate-900">Total Net Salaries</div>
-                    <div className="text-[10px] text-slate-500">126 Active Staff</div>
-                  </div>
-                  <div className="text-lg font-black text-slate-950">$142,850.00</div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </section>
