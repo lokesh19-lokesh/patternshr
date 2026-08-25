@@ -38,6 +38,7 @@ export const MeetingRoomPage: React.FC = () => {
   const { company, role } = useTenant();
 
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -85,19 +86,21 @@ export const MeetingRoomPage: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
 
-  // Initial Load: Meeting details and local media preview
+  // Initial Load: Meeting details, workspace employees and local media preview
   useEffect(() => {
     const init = async () => {
       if (!company || !user || !meetingCode) return;
       try {
         setLoading(true);
-        const [emp, meet] = await Promise.all([
+        const [emp, meet, emps] = await Promise.all([
           employeeService.getCurrentEmployee(company.id, user.id),
           meetingService.getMeetingByCode(company.id, meetingCode),
+          employeeService.getEmployees(company.id),
         ]);
 
         setCurrentEmployee(emp);
         setMeeting(meet);
+        setAllEmployees(emps || []);
 
         if (meet) {
           setNotes(meet.notes || '');
@@ -136,6 +139,45 @@ export const MeetingRoomPage: React.FC = () => {
     };
   }, [company, user, meetingCode]);
 
+  const resolvePeerName = (peerId: string, fallbackName?: string): string => {
+    if (fallbackName && fallbackName !== 'Team Member' && fallbackName !== 'Participant' && fallbackName.trim().length > 0) {
+      return fallbackName.trim();
+    }
+    // 1. Check in meeting participants
+    const meetParticipant = meeting?.participants?.find(
+      (p) => p.employee_id === peerId || p.employee?.id === peerId
+    );
+    if (meetParticipant?.employee) {
+      return `${meetParticipant.employee.first_name} ${meetParticipant.employee.last_name || ''}`.trim();
+    }
+    // 2. Check in meeting host
+    if (meeting?.host_employee_id === peerId && meeting.host) {
+      return `${meeting.host.first_name} ${meeting.host.last_name || ''}`.trim();
+    }
+    // 3. Check in workspace employees
+    const matchedEmp = allEmployees.find((e) => e.id === peerId);
+    if (matchedEmp) {
+      return `${matchedEmp.first_name} ${matchedEmp.last_name || ''}`.trim();
+    }
+    return (fallbackName && fallbackName !== 'Team Member' ? fallbackName : null) || 'Participant';
+  };
+
+  // Keep remote peer names up to date when directory or meeting info loads
+  useEffect(() => {
+    if (remotePeers.length === 0) return;
+    setRemotePeers((prev) =>
+      prev.map((peer) => {
+        if (!peer.name || peer.name === 'Team Member' || peer.name === 'Participant') {
+          const resolved = resolvePeerName(peer.id, peer.name);
+          if (resolved !== peer.name) {
+            return { ...peer, name: resolved };
+          }
+        }
+        return peer;
+      })
+    );
+  }, [allEmployees, meeting]);
+
   const isHost = meeting?.host_employee_id === currentEmployee?.id || role?.name?.toLowerCase().includes('admin');
 
   // Join Call & Setup Signaling
@@ -155,23 +197,41 @@ export const MeetingRoomPage: React.FC = () => {
     const empName = `${currentEmployee.first_name} ${currentEmployee.last_name || ''}`.trim();
 
     const manager = new WebRTCMeetingManager(meetingCode, currentEmployee.id, empName, {
-      onRemoteStreamAdded: (peerId, stream) => {
+      onRemoteStreamAdded: (peerId, stream, peerName) => {
         setRemotePeers((prev) => {
+          const resolvedName = resolvePeerName(peerId, peerName);
           const existing = prev.find((p) => p.id === peerId);
           if (existing) {
-            return prev.map((p) => (p.id === peerId ? { ...p, stream } : p));
+            return prev.map((p) =>
+              p.id === peerId
+                ? {
+                    ...p,
+                    stream,
+                    name:
+                      existing.name && existing.name !== 'Team Member' && existing.name !== 'Participant'
+                        ? existing.name
+                        : resolvedName,
+                  }
+                : p
+            );
           }
           return [
             ...prev,
             {
               id: peerId,
-              name: 'Team Member',
+              name: resolvedName,
               stream,
               isAudioMuted: false,
               isVideoMuted: false,
             },
           ];
         });
+      },
+      onPeerNameResolved: (peerId, name) => {
+        if (!name || name === 'Team Member') return;
+        setRemotePeers((prev) =>
+          prev.map((p) => (p.id === peerId ? { ...p, name: resolvePeerName(peerId, name) } : p))
+        );
       },
       onRemoteStreamRemoved: (peerId) => {
         setRemotePeers((prev) => prev.filter((p) => p.id !== peerId));
@@ -181,23 +241,49 @@ export const MeetingRoomPage: React.FC = () => {
       },
       onPeerMuteChanged: (peerId, mutedAudio, mutedVideo) => {
         setRemotePeers((prev) =>
-          prev.map((p) => (p.id === peerId ? { ...p, isAudioMuted: mutedAudio, isVideoMuted: mutedVideo } : p))
+          prev.map((p) =>
+            p.id === peerId
+              ? {
+                  ...p,
+                  isAudioMuted: mutedAudio,
+                  isVideoMuted: mutedVideo,
+                  name: resolvePeerName(peerId, p.name),
+                }
+              : p
+          )
         );
       },
       onPeerScreenShareChanged: (peerId, isSharing) => {
         setRemotePeers((prev) =>
-          prev.map((p) => (p.id === peerId ? { ...p, isScreenSharing: isSharing } : p))
+          prev.map((p) =>
+            p.id === peerId
+              ? {
+                  ...p,
+                  isScreenSharing: isSharing,
+                  name: resolvePeerName(peerId, p.name),
+                }
+              : p
+          )
         );
       },
       onPeerHandRaised: (peerId, isRaised) => {
         setRemotePeers((prev) =>
-          prev.map((p) => (p.id === peerId ? { ...p, isHandRaised: isRaised } : p))
+          prev.map((p) =>
+            p.id === peerId
+              ? {
+                  ...p,
+                  isHandRaised: isRaised,
+                  name: resolvePeerName(peerId, p.name),
+                }
+              : p
+          )
         );
       },
       onPeerReaction: (peerId, emoji) => {
         const id = Math.random().toString();
         const peer = remotePeers.find((p) => p.id === peerId);
-        setFloatingReactions((prev) => [...prev, { id, emoji, senderName: peer?.name }]);
+        const resolvedName = resolvePeerName(peerId, peer?.name);
+        setFloatingReactions((prev) => [...prev, { id, emoji, senderName: resolvedName }]);
         setTimeout(() => {
           setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
         }, 3000);
@@ -215,9 +301,10 @@ export const MeetingRoomPage: React.FC = () => {
         } else if (cmd === 'admit_user' && payload.targetId === currentEmployee.id) {
           setStage('in_call');
         } else if (cmd === 'user_waiting' && isHost) {
+          const waitingName = resolvePeerName(payload.senderId, payload.name || payload.senderName);
           setWaitingParticipants((prev) => {
             if (prev.some((p) => p.id === payload.senderId)) return prev;
-            return [...prev, { id: payload.senderId, name: payload.name }];
+            return [...prev, { id: payload.senderId, name: waitingName }];
           });
         }
       },

@@ -15,7 +15,7 @@ export interface PeerConnectionInfo {
 }
 
 export interface WebRTCEventCallbacks {
-  onRemoteStreamAdded: (peerId: string, stream: MediaStream) => void;
+  onRemoteStreamAdded: (peerId: string, stream: MediaStream, peerName?: string) => void;
   onRemoteStreamRemoved: (peerId: string) => void;
   onPeerLeft: (peerId: string) => void;
   onPeerMuteChanged: (peerId: string, isAudioMuted: boolean, isVideoMuted: boolean) => void;
@@ -25,6 +25,7 @@ export interface WebRTCEventCallbacks {
   onChatMessage: (message: any) => void;
   onRoomCommand: (command: string, payload: any) => void;
   onAudioLevelChanged: (peerId: string, level: number) => void;
+  onPeerNameResolved?: (peerId: string, name: string) => void;
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -43,6 +44,7 @@ export class WebRTCMeetingManager {
   private localStream: MediaStream | null = null;
   private localScreenStream: MediaStream | null = null;
   private peers: Map<string, RTCPeerConnection> = new Map();
+  private peerNames: Map<string, string> = new Map();
   private callbacks: WebRTCEventCallbacks;
   private audioContext: AudioContext | null = null;
   private localAudioAnalyser: AnalyserNode | null = null;
@@ -148,14 +150,25 @@ export class WebRTCMeetingManager {
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState() || {};
       // Notify of all active peers
-      Object.keys(state).forEach((peerKey) => {
+      Object.entries(state).forEach(([peerKey, presences]) => {
+        const pres = (presences as any[])?.[0];
+        const peerName = pres?.name;
         if (peerKey !== this.currentEmployeeId) {
+          if (peerName) {
+            this.peerNames.set(peerKey, peerName);
+            this.callbacks.onPeerNameResolved?.(peerKey, peerName);
+          }
           this.ensurePeerConnection(peerKey, true);
         }
       });
     })
-      .on('presence', { event: 'join' }, ({ key }: any) => {
+      .on('presence', { event: 'join' }, ({ key, newPresences }: any) => {
+        const peerName = newPresences?.[0]?.name;
         if (key !== this.currentEmployeeId) {
+          if (peerName) {
+            this.peerNames.set(key, peerName);
+            this.callbacks.onPeerNameResolved?.(key, peerName);
+          }
           this.ensurePeerConnection(key, true);
         }
       })
@@ -167,7 +180,11 @@ export class WebRTCMeetingManager {
 
     // Handle WebRTC Signaling Broadcasts
     ch.on('broadcast', { event: 'signal' }, async ({ payload }: any) => {
-      const { senderId, targetId, type, data } = payload;
+      const { senderId, senderName, targetId, type, data } = payload;
+      if (senderName) {
+        this.peerNames.set(senderId, senderName);
+        this.callbacks.onPeerNameResolved?.(senderId, senderName);
+      }
       if (targetId && targetId !== this.currentEmployeeId) return;
 
       if (type === 'offer') {
@@ -179,7 +196,11 @@ export class WebRTCMeetingManager {
       }
     })
       .on('broadcast', { event: 'peer_state' }, ({ payload }: any) => {
-        const { senderId, isAudioMuted, isVideoMuted, isScreenSharing, isHandRaised } = payload;
+        const { senderId, senderName, isAudioMuted, isVideoMuted, isScreenSharing, isHandRaised } = payload;
+        if (senderName) {
+          this.peerNames.set(senderId, senderName);
+          this.callbacks.onPeerNameResolved?.(senderId, senderName);
+        }
         if (senderId !== this.currentEmployeeId) {
           this.callbacks.onPeerMuteChanged(senderId, isAudioMuted, isVideoMuted);
           this.callbacks.onPeerScreenShareChanged(senderId, isScreenSharing);
@@ -238,7 +259,8 @@ export class WebRTCMeetingManager {
     // Remote Track handler
     pc.ontrack = (event) => {
       if (event.streams && event.streams[0]) {
-        this.callbacks.onRemoteStreamAdded(peerId, event.streams[0]);
+        const peerName = this.peerNames.get(peerId);
+        this.callbacks.onRemoteStreamAdded(peerId, event.streams[0], peerName);
       }
     };
 
@@ -303,6 +325,7 @@ export class WebRTCMeetingManager {
       event: 'signal',
       payload: {
         senderId: this.currentEmployeeId,
+        senderName: this.currentEmployeeName,
         targetId,
         type,
         data,
@@ -396,6 +419,7 @@ export class WebRTCMeetingManager {
       event: 'reaction',
       payload: {
         senderId: this.currentEmployeeId,
+        senderName: this.currentEmployeeName,
         emoji,
       },
     });
@@ -416,6 +440,7 @@ export class WebRTCMeetingManager {
       payload: {
         command,
         senderId: this.currentEmployeeId,
+        senderName: this.currentEmployeeName,
         ...payload,
       },
     });
@@ -427,6 +452,7 @@ export class WebRTCMeetingManager {
       event: 'peer_state',
       payload: {
         senderId: this.currentEmployeeId,
+        senderName: this.currentEmployeeName,
         isAudioMuted: this.isAudioMuted,
         isVideoMuted: this.isVideoMuted,
         isScreenSharing: this.isScreenSharing,
