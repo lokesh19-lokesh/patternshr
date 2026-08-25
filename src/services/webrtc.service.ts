@@ -74,7 +74,9 @@ export class WebRTCMeetingManager {
   // 1. Get Local Camera and Mic Stream
   async initLocalMedia(videoDeviceId?: string, audioDeviceId?: string): Promise<MediaStream> {
     const constraints: MediaStreamConstraints = {
-      audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
+      audio: audioDeviceId
+        ? { deviceId: { exact: audioDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        : { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       video: videoDeviceId
         ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
         : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
@@ -87,7 +89,10 @@ export class WebRTCMeetingManager {
     } catch (e: any) {
       console.warn('Could not get video+audio, trying audio only...', e);
       try {
-        this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        this.localStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: false,
+        });
         this.isVideoMuted = true;
         this.setupAudioLevelMeter(this.localStream);
         return this.localStream;
@@ -103,7 +108,9 @@ export class WebRTCMeetingManager {
   async switchDevices(audioDeviceId?: string, videoDeviceId?: string): Promise<MediaStream | null> {
     try {
       const constraints: MediaStreamConstraints = {
-        audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
+        audio: audioDeviceId
+          ? { deviceId: { exact: audioDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+          : { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: videoDeviceId
           ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
           : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },

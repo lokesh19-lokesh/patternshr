@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ParticipantTile } from './ParticipantTile';
+import { LayoutGrid, Maximize, Columns } from 'lucide-react';
 
 export interface MeetingPeer {
   id: string;
@@ -13,18 +14,23 @@ export interface MeetingPeer {
   audioLevel?: number;
 }
 
+export type VideoLayoutMode = 'auto' | 'grid' | 'spotlight' | 'sidebar';
+
 interface VideoGridProps {
   localUser: MeetingPeer;
   remotePeers: MeetingPeer[];
   screenSharingPeer?: MeetingPeer | null;
+  isLocalBlurred?: boolean;
 }
 
 export const VideoGrid: React.FC<VideoGridProps> = ({
   localUser,
   remotePeers,
   screenSharingPeer,
+  isLocalBlurred = false,
 }) => {
   const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const [layoutMode, setLayoutMode] = useState<VideoLayoutMode>('auto');
 
   const allParticipants = [localUser, ...remotePeers];
   const totalCount = allParticipants.length;
@@ -32,15 +38,61 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   // Active speaker detection (threshold > 25)
   const isSpeaking = (p: MeetingPeer) => (p.audioLevel || 0) > 25 && !p.isAudioMuted;
 
-  // If a screen is being shared or pinned, render Spotlight Layout
-  const spotlightUser = screenSharingPeer || allParticipants.find((p) => p.id === pinnedId);
+  // Most active remote speaker
+  const activeSpeaker = allParticipants.find((p) => isSpeaking(p)) || allParticipants[1] || allParticipants[0];
 
-  if (spotlightUser) {
+  // Determine which user gets the main stage if in spotlight / sidebar mode
+  const spotlightUser = screenSharingPeer || (pinnedId ? allParticipants.find((p) => p.id === pinnedId) : null) || (layoutMode === 'spotlight' || layoutMode === 'sidebar' ? activeSpeaker : null);
+
+  const renderLayoutControls = () => (
+    <div className="absolute top-4 right-4 z-20 flex items-center space-x-1 bg-[#171A1C]/80 backdrop-blur-md p-1 rounded-2xl border border-white/10 shadow-lg">
+      <button
+        onClick={() => setLayoutMode('auto')}
+        title="Auto Layout"
+        className={`p-2 rounded-xl text-xs font-bold transition-all ${
+          layoutMode === 'auto'
+            ? 'bg-primary-green text-white shadow-sm'
+            : 'text-gray-400 hover:text-white hover:bg-white/10'
+        }`}
+      >
+        <LayoutGrid className="h-3.5 w-3.5" />
+      </button>
+
+      <button
+        onClick={() => setLayoutMode('spotlight')}
+        title="Spotlight Focus"
+        className={`p-2 rounded-xl text-xs font-bold transition-all ${
+          layoutMode === 'spotlight'
+            ? 'bg-primary-green text-white shadow-sm'
+            : 'text-gray-400 hover:text-white hover:bg-white/10'
+        }`}
+      >
+        <Maximize className="h-3.5 w-3.5" />
+      </button>
+
+      <button
+        onClick={() => setLayoutMode('sidebar')}
+        title="Sidebar Filmstrip"
+        className={`p-2 rounded-xl text-xs font-bold transition-all ${
+          layoutMode === 'sidebar'
+            ? 'bg-primary-green text-white shadow-sm'
+            : 'text-gray-400 hover:text-white hover:bg-white/10'
+        }`}
+      >
+        <Columns className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+
+  // If a screen is being shared, pinned, or layout is spotlight/sidebar
+  if (spotlightUser && (layoutMode !== 'grid' || screenSharingPeer || pinnedId)) {
     const sidebarPeers = allParticipants.filter((p) => p.id !== spotlightUser.id);
     return (
-      <div className="flex-1 w-full h-full p-4 flex flex-col lg:flex-row gap-4 overflow-hidden">
+      <div className="relative flex-1 w-full h-full p-4 flex flex-col lg:flex-row gap-4 overflow-hidden animate-fade-in">
+        {renderLayoutControls()}
+
         {/* Main Spotlighted Stage */}
-        <div className="flex-1 h-full min-h-[300px]">
+        <div className="flex-1 h-full min-h-[320px]">
           <ParticipantTile
             id={spotlightUser.id}
             name={spotlightUser.name}
@@ -52,6 +104,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
             isHost={spotlightUser.isHost}
             isSpeaking={isSpeaking(spotlightUser)}
             isLocal={spotlightUser.id === localUser.id}
+            isBlurred={spotlightUser.id === localUser.id && isLocalBlurred}
             isPinned={pinnedId === spotlightUser.id}
             onPin={() => setPinnedId(pinnedId === spotlightUser.id ? null : spotlightUser.id)}
           />
@@ -59,9 +112,9 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
 
         {/* Sidebar participant list */}
         {sidebarPeers.length > 0 && (
-          <div className="lg:w-72 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto max-h-48 lg:max-h-full">
+          <div className="lg:w-80 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto max-h-48 lg:max-h-full flex-shrink-0">
             {sidebarPeers.map((peer) => (
-              <div key={peer.id} className="w-48 lg:w-full h-36 flex-shrink-0">
+              <div key={peer.id} className="w-52 lg:w-full h-40 flex-shrink-0">
                 <ParticipantTile
                   id={peer.id}
                   name={peer.name}
@@ -73,6 +126,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
                   isHost={peer.isHost}
                   isSpeaking={isSpeaking(peer)}
                   isLocal={peer.id === localUser.id}
+                  isBlurred={peer.id === localUser.id && isLocalBlurred}
                   isPinned={pinnedId === peer.id}
                   onPin={() => setPinnedId(pinnedId === peer.id ? null : peer.id)}
                 />
@@ -94,7 +148,8 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   };
 
   return (
-    <div className="flex-1 w-full h-full p-4 flex items-center justify-center overflow-y-auto">
+    <div className="relative flex-1 w-full h-full p-4 flex items-center justify-center overflow-y-auto animate-fade-in">
+      {renderLayoutControls()}
       <div className={`grid gap-4 w-full h-full ${getGridClasses(totalCount)}`}>
         {allParticipants.map((peer) => (
           <ParticipantTile
@@ -109,6 +164,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
             isHost={peer.isHost}
             isSpeaking={isSpeaking(peer)}
             isLocal={peer.id === localUser.id}
+            isBlurred={peer.id === localUser.id && isLocalBlurred}
             isPinned={pinnedId === peer.id}
             onPin={() => setPinnedId(pinnedId === peer.id ? null : peer.id)}
           />

@@ -9,7 +9,8 @@ import type {
   Meeting, 
   MeetingMessage, 
   MeetingInterviewDetails, 
-  MeetingReviewDetails 
+  MeetingReviewDetails,
+  MeetingAISummary 
 } from '../../../services/meeting.service';
 import { WebRTCMeetingManager } from '../../../services/webrtc.service';
 import { LiveCaptionService } from '../../../services/captions.service';
@@ -31,6 +32,7 @@ import { ReactionsOverlay } from './ReactionsOverlay';
 import type { FloatingReaction } from './ReactionsOverlay';
 import { DeviceSettingsModal } from './DeviceSettingsModal';
 import { HostControlsModal } from './HostControlsModal';
+import { MeetingRecapModal } from './MeetingRecapModal';
 
 export const MeetingRoomPage: React.FC = () => {
   const { meetingCode } = useParams<{ meetingCode: string }>();
@@ -52,6 +54,7 @@ export const MeetingRoomPage: React.FC = () => {
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
+  const [isLocalBlurred, setIsLocalBlurred] = useState(false);
 
   const [remotePeers, setRemotePeers] = useState<MeetingPeer[]>([]);
   const [waitingParticipants, setWaitingParticipants] = useState<{ id: string; name: string }[]>([]);
@@ -60,6 +63,7 @@ export const MeetingRoomPage: React.FC = () => {
   const [activeDrawer, setActiveDrawer] = useState<'chat' | 'people' | 'notes' | 'interview' | 'review' | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHostModal, setShowHostModal] = useState(false);
+  const [showRecapModal, setShowRecapModal] = useState(false);
 
   // In-Meeting Chat & Reactions
   const [messages, setMessages] = useState<MeetingMessage[]>([]);
@@ -72,8 +76,10 @@ export const MeetingRoomPage: React.FC = () => {
   const [captionSpeaker, setCaptionSpeaker] = useState('');
   const [isRecording, setIsRecording] = useState(false);
 
-  // Notes
+  // Notes & AI Summary
   const [notes, setNotes] = useState('');
+  const [aiSummary, setAiSummary] = useState<MeetingAISummary | undefined>(undefined);
+  const [callDurationSeconds, setCallDurationSeconds] = useState(0);
 
   // Host Controls & Permissions
   const [isLocked, setIsLocked] = useState(false);
@@ -87,6 +93,15 @@ export const MeetingRoomPage: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const waitingChannelRef = useRef<any>(null);
+
+  // Duration Timer in Call
+  useEffect(() => {
+    if (stage !== 'in_call') return;
+    const interval = setInterval(() => {
+      setCallDurationSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [stage]);
 
   // Initial Load: Meeting details, workspace employees and local media preview
   useEffect(() => {
@@ -111,6 +126,7 @@ export const MeetingRoomPage: React.FC = () => {
         if (meet) {
           setNotes(meet.notes || '');
           setIsLocked(meet.is_locked || false);
+          if (meet.ai_summary) setAiSummary(meet.ai_summary);
           if (meet.settings) {
             setAllowChat(meet.settings.allow_chat !== false);
             setAllowScreenShare(meet.settings.allow_screen_share !== false);
@@ -120,12 +136,18 @@ export const MeetingRoomPage: React.FC = () => {
 
         // Initialize local camera preview for pre-join screen
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          });
           if (isMounted) setLocalStream(stream);
         } catch (mediaErr) {
           console.warn('Could not get full media for preview', mediaErr);
           try {
-            const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            const audioOnly = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+              video: false,
+            });
             if (isMounted) {
               setLocalStream(audioOnly);
               setIsVideoMuted(true);
@@ -596,6 +618,15 @@ export const MeetingRoomPage: React.FC = () => {
     await meetingService.saveMeetingNotes(company.id, meeting.id, newNotes);
   };
 
+  const handleGenerateAISummary = async (currentNotes: string): Promise<MeetingAISummary | null> => {
+    if (!company || !meeting) return null;
+    const transcripts = captionServiceRef.current?.getTranscripts() || [];
+    const generated = await meetingService.generateMeetingSummary(currentNotes, transcripts);
+    setAiSummary(generated);
+    await meetingService.saveMeetingAISummary(company.id, meeting.id, generated);
+    return generated;
+  };
+
   const handleSaveInterviewDetails = async (details: Partial<MeetingInterviewDetails>) => {
     if (!company || !meeting) return;
     await meetingService.updateInterviewDetails(company.id, meeting.id, details);
@@ -617,7 +648,8 @@ export const MeetingRoomPage: React.FC = () => {
       mediaRecorderRef.current.stop();
     }
 
-    navigate('/dashboard/meetings');
+    // Show session recap modal before exit
+    setShowRecapModal(true);
   };
 
   const handleEndMeetingForAll = async () => {
@@ -725,8 +757,10 @@ export const MeetingRoomPage: React.FC = () => {
         localStream={localStream}
         isAudioMuted={isAudioMuted}
         isVideoMuted={isVideoMuted}
+        isBlurred={isLocalBlurred}
         onToggleAudio={handleToggleAudio}
         onToggleVideo={handleToggleVideo}
+        onToggleBlur={() => setIsLocalBlurred(!isLocalBlurred)}
         onOpenSettings={() => setShowSettingsModal(true)}
         onJoin={handleJoinCall}
         onCancel={() => navigate('/dashboard/meetings')}
@@ -762,6 +796,7 @@ export const MeetingRoomPage: React.FC = () => {
           localUser={localUserPeer}
           remotePeers={remotePeers}
           screenSharingPeer={screenSharingPeer}
+          isLocalBlurred={isLocalBlurred}
         />
 
         {/* Live Captions Subtitle Overlay */}
@@ -802,7 +837,9 @@ export const MeetingRoomPage: React.FC = () => {
           isOpen={activeDrawer === 'notes'}
           onClose={() => setActiveDrawer(null)}
           initialNotes={notes}
+          initialAISummary={aiSummary}
           onSaveNotes={handleSaveNotes}
+          onGenerateSummary={handleGenerateAISummary}
           isHostOrHr={!!isHost}
         />
 
@@ -866,6 +903,17 @@ export const MeetingRoomPage: React.FC = () => {
         onToggleAllowScreenShare={handleToggleAllowScreenShare}
         onToggleAllowReactions={handleToggleAllowReactions}
         onEndMeetingForAll={handleEndMeetingForAll}
+      />
+
+      {/* Post-Meeting Session Recap Modal */}
+      <MeetingRecapModal
+        isOpen={showRecapModal}
+        meeting={meeting}
+        durationSeconds={callDurationSeconds}
+        participants={[localUserPeer, ...remotePeers]}
+        notes={notes}
+        aiSummary={aiSummary}
+        onClose={() => navigate('/dashboard/meetings')}
       />
     </div>
   );

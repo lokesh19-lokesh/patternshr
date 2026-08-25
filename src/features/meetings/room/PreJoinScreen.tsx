@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { 
   Mic, 
   MicOff, 
@@ -7,7 +7,8 @@ import {
   Settings, 
   ArrowRight, 
   ShieldCheck, 
-  Video as VideoIcon
+  Video as VideoIcon,
+  Sparkles
 } from 'lucide-react';
 import type { Meeting } from '../../../services/meeting.service';
 import type { Employee } from '../../../services/employee.service';
@@ -19,8 +20,10 @@ interface PreJoinScreenProps {
   localStream: MediaStream | null;
   isAudioMuted: boolean;
   isVideoMuted: boolean;
+  isBlurred?: boolean;
   onToggleAudio: () => void;
   onToggleVideo: () => void;
+  onToggleBlur?: () => void;
   onOpenSettings: () => void;
   onJoin: () => void;
   onCancel: () => void;
@@ -33,19 +36,70 @@ export const PreJoinScreen: React.FC<PreJoinScreenProps> = ({
   localStream,
   isAudioMuted,
   isVideoMuted,
+  isBlurred = false,
   onToggleAudio,
   onToggleVideo,
+  onToggleBlur,
   onOpenSettings,
   onJoin,
   onCancel,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [micLevel, setMicLevel] = useState(0);
 
   useEffect(() => {
     if (videoRef.current && localStream) {
       videoRef.current.srcObject = localStream;
     }
   }, [localStream]);
+
+  // Real-time audio meter for mic test in prejoin screen
+  useEffect(() => {
+    if (!localStream || isAudioMuted) {
+      setMicLevel(0);
+      return;
+    }
+
+    let audioCtx: AudioContext | null = null;
+    let interval: any = null;
+
+    try {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack && audioTrack.enabled) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          audioCtx = new AudioCtx();
+          const source = audioCtx.createMediaStreamSource(localStream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          source.connect(analyser);
+
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+
+          interval = setInterval(() => {
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+              sum += dataArray[i];
+            }
+            const avg = sum / bufferLength;
+            const normalized = Math.min(100, Math.round((avg / 128) * 100));
+            setMicLevel(normalized > 10 ? normalized : 0);
+          }, 150);
+        }
+      }
+    } catch (e) {
+      console.warn('Prejoin audio meter not available', e);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (audioCtx && audioCtx.state !== 'closed') {
+        audioCtx.close().catch(() => {});
+      }
+    };
+  }, [localStream, isAudioMuted]);
 
   const empName = currentEmployee
     ? `${currentEmployee.first_name} ${currentEmployee.last_name || ''}`.trim()
@@ -70,7 +124,9 @@ export const PreJoinScreen: React.FC<PreJoinScreenProps> = ({
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover scale-x-[-1]"
+                className={`w-full h-full object-cover scale-x-[-1] transition-all duration-300 ${
+                  isBlurred ? 'filter blur-md scale-105' : ''
+                }`}
               />
             ) : (
               <div className="flex flex-col items-center justify-center space-y-3">
@@ -105,6 +161,19 @@ export const PreJoinScreen: React.FC<PreJoinScreenProps> = ({
                 {isVideoMuted ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
               </button>
 
+              {onToggleBlur && !isVideoMuted && (
+                <button
+                  type="button"
+                  onClick={onToggleBlur}
+                  className={`p-3 rounded-xl transition-colors ${
+                    isBlurred ? 'bg-primary-green text-white' : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                  }`}
+                  title="Toggle Soft Focus Blur"
+                >
+                  <Sparkles className="h-5 w-5" />
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={onOpenSettings}
@@ -114,6 +183,18 @@ export const PreJoinScreen: React.FC<PreJoinScreenProps> = ({
                 <Settings className="h-5 w-5" />
               </button>
             </div>
+
+            {/* Mic Live Level Indicator Badge */}
+            {!isAudioMuted && (
+              <div className="absolute top-4 left-4 flex items-center space-x-1 px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-[10px] text-emerald-400 font-bold">
+                <div className="flex items-center space-x-0.5 mr-1">
+                  <span className={`h-2 w-1 rounded-full ${micLevel > 15 ? 'bg-primary-green' : 'bg-gray-600'}`}></span>
+                  <span className={`h-3 w-1 rounded-full ${micLevel > 35 ? 'bg-primary-green' : 'bg-gray-600'}`}></span>
+                  <span className={`h-4 w-1 rounded-full ${micLevel > 60 ? 'bg-primary-green' : 'bg-gray-600'}`}></span>
+                </div>
+                <span>{micLevel > 15 ? 'Mic Ready' : 'Speak to test'}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between text-xs text-gray-400 px-2">
